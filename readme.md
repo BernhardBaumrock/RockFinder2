@@ -25,3 +25,53 @@ $finder2 = new RockFinder2("template=bar", ['id', 'title', 'something', 'else'])
 @param field of original finder
 $finder1->relate($finder2, 'id', 'bar');
 ```
+
+## New syntax
+
+```
+// foo.php
+$foo = new RockFinder();
+$foo->name = 'foo';
+$foo->addColumns(['bar', 'what', 'so', 'ever']);
+return $foo;
+```
+
+```
+// bar.php
+$bar = new RockFinder();
+$bar->name = 'bar';
+$bar->addColumns(['id', 'title']);
+return $bar;
+```
+
+```
+$rf = new RockFinder();
+$rf->import('foo', [
+  'hide' => ['what', 'so'],
+  'rename' => [
+    'ever' => 'never',
+  ],
+  'prefix' => 'foo_',
+]);
+$rf->hideColumns([
+$rf->addColumns(['some', 'more', 'columns']);
+$rf->addRelation('bar', 'id', 'bar');
+$rf->addOptions('invoice_type');
+$rf->addOptions('invoice_status');
+$rf->getData();
+```
+
+```
+|- data [1, 2, 3] (base table)
+|- relations
+|  '- bar [1, 2, 3]
+'- options (options/select fields)
+   |- invoice_type [1, 2, 3]
+   '- invoice_status [1, 2, 3]
+```
+
+Joins would join a finder into the base table ("data"). Column name collisions can occur!
+
+What about images, repeaters, pagetables?
+
+Columns MUST be defined manually. Otherwise joins can not work. If SQL is provided and columns are not set, the columns are retrieved via an `SQL limit=1` query.
