@@ -1,3 +1,9 @@
+# RockFinder2
+
+ProcessWire module, successor of RockFinder
+
+---
+
 ```
 $database = $this->wire('database'); 
 $query = $database->prepare('DELETE FROM modules WHERE class=:class LIMIT 1'); // QA
