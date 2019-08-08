@@ -46,6 +46,7 @@ return $bar;
 
 ```
 $rf = new RockFinder();
+$rf->name = 'demo';
 $rf->import('foo', [
   'hide' => ['what', 'so'],
   'rename' => [
@@ -75,3 +76,17 @@ Joins would join a finder into the base table ("data"). Column name collisions c
 What about images, repeaters, pagetables?
 
 Columns MUST be defined manually. Otherwise joins can not work. If SQL is provided and columns are not set, the columns are retrieved via an `SQL limit=1` query.
+
+## misc
+
+Join SQL column:
+
+```
+$rf->addColumn('SELECT foo FROM bar WHERE id = demo.xxx' => 'sqldemo');
+```
+
+Add column with custom name:
+
+```
+$rf->addColumn('fieldname' => 'customname');
+```
