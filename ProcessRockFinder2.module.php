@@ -23,6 +23,37 @@ class ProcessRockFinder2 extends Process {
   }
 
   /**
+   * Init the module
+   */
+  public function init() {
+    parent::init();
+    $this->rf = $this->wire->RockFinder2;
+  }
+
+  /**
+   * Main screen
+   */
+  public function execute() {
+    $out = '';
+
+    // list all available finders
+    $out .= "<h2>Available Finders</h2>";
+    $out .= '<table class="uk-table uk-table-divider uk-table-striped">';
+    $out .= '<thead><tr><th>Name</th><th>Description</th></tr></thead>';
+    $out .= '<tbody>';
+    $path = $this->config->paths->assets . "RockFinder2";
+    foreach($this->files->find($path, ['extensions' => ['php']]) as $file) {
+      $info = (object)pathinfo($file);
+      $desc = str_replace('// ', '', file($file)[1]);
+      $out .= "<tr><td><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td></tr>";
+    }
+    $out .= '</tbody>';
+    $out .= '</table>';
+
+    return $out;
+  }
+
+  /**
    * übersicht über alle leistungen
    */
   public function ___executeSandbox() {
@@ -30,6 +61,9 @@ class ProcessRockFinder2 extends Process {
     $this->wire('processBrowserTitle', 'RF2 Sandbox');
     $form = modules('InputfieldForm');
     $form->action = './';
+    $out = '';
+
+    $out .= '<p><a href="'.$this->page->url.'">< Back to overview</a></p>';
 
     // code field
     $f = $this->modules->get('InputfieldTextarea');
@@ -50,43 +84,23 @@ class ProcessRockFinder2 extends Process {
     $f->notes = "Execute on CTRL+ENTER or ALT+ENTER";
     $f->description = "The code must return a RockFinder2 instance, Result will be logged to the browser console!";
     if(!$ace) $f->notes .= "\nYou can install 'InputfieldAceExtended' for better code editing";
+
+    // get code
+    $code = file_get_contents(__DIR__ . '/includes/demo.php');
+    $name = $this->input->get('name', 'string');
+    if($name) {
+      $file = $this->rf->getFiles($name);
+      if(!$file) throw new WireException("Finder for $name not found");
+      $code = file_get_contents($file);
+    }
     
     $f->name = 'code';
     $f->label = 'Code to execute';
-    $f->value = "<?php namespace ProcessWire;"
-      ."\n".'$rf = new RockFinder2();'
-      ."\n".'$rf->name = "demo";'
-      ."\n".'$rf->selector = "id>2, limit=10";'
-      ."\n".'return $rf;';
+    $f->value = $code;
     $form->add($f);
 
-    return $form->render();
+    $out .= $form->render();
+    return $out;
   }
-
-  /**
-   * Get data of sandbox finder
-   * @return string
-   */
-  public function executeGetdata() {
-    if(!$this->user->isSuperuser()) throw new WireException("Only SuperUsers have access");
-    
-    // get code from input and write it to a temp file
-    $tmp = $this->files->tempDir($this->className);
-    $file = $tmp.uniqid().".php";
-    file_put_contents($file, $this->input->post('code'));
-
-    // now render this file and get returned rockfinder
-    try {
-      $rf = $this->files->render($file);
-      if(!$rf instanceof RockFinder2) {
-        throw new WireException("Your code must return a RockFinder2 instance!");
-      }
-      $rf->getGzip();
-    } catch (\Throwable $th) {
-      echo $th->getMessage();
-      exit();
-    }
-  }
-
 }
 

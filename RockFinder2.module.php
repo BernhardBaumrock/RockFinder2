@@ -17,7 +17,7 @@ class RockFinder2 extends WireData implements Module {
       'singular' => true,
     ];
   }
-
+  
   /**
    * RockFinder data object
    */
@@ -32,7 +32,7 @@ class RockFinder2 extends WireData implements Module {
   public $hasAccess;
 
   /**
-   * @var string name
+   * @var string name of this finder
    */
   public $name;
 
@@ -42,6 +42,11 @@ class RockFinder2 extends WireData implements Module {
   public $selector;
 
   /**
+   * @var WireData config data for JavaScript
+   */
+  private $jsConfig;
+
+  /**
    * Initialize the module (optional)
    */
   public function init() {
@@ -49,8 +54,34 @@ class RockFinder2 extends WireData implements Module {
     if(!$this->wire->RockFinder2) {
       $this->name = 'rf2';
       $this->wire->set('RockFinder2', $this);
+      $this->url = "/".trim($this->url, "/")."/";
+
+      // handle API Endpoint
+      $this->addHookBefore('ProcessPageView::pageNotFound', $this, 'apiEndpoint');
+
+      // load JS
+      $this->config->scripts->add($this->config->urls($this). 'RockFinder2.js');
+      $this->addHookAfter("Page(template=admin)::render", function(HookEvent $event) {
+        if($this->config->ajax) return;
+
+        $html = $event->return;
+        $code = $this->files->render(__DIR__.'/includes/script.php', [
+          'conf' => [
+            'url' => $this->url,
+          ],
+        ]);
+        $event->return = str_replace('</head>', $code.'</head>', $html);
+      });
+
       return;
     }
+  }
+  
+  /**
+   * API ready
+   */
+  public function ready() {
+    $this->checkUrl();
   }
 
   /**
@@ -63,6 +94,136 @@ class RockFinder2 extends WireData implements Module {
     $this->hasAccess = function() {
       return $this->user->isSuperuser();
     };
+  }
+
+  /**
+   * Handle API Endpoint requests
+   * @param HookEvent $event
+   * @return void
+   */
+  public function apiEndpoint($event) {
+    // is this the API Endpoint url?
+    $url = $event->arguments('url');
+
+    // if url does not match do a regular 404
+    if($url != $this->url) return;
+
+    // get finder that should be executed
+    $input = $this->input;
+    $name = $input->post('name', 'string') ?: $input->get('name', 'string');
+
+    // execute finder
+    if($name) {
+      $finder = $this->getByName($name);
+      if($finder) $finder->execute();
+    }
+    else {
+      $this->executeSandbox();
+    }
+
+    // execute finder
+    // log errors (status codes)
+  }
+
+  /**
+   * Execute given finder
+   * @param null|string|RockFinder2 $finder
+   * @return void
+   */
+  public function execute($finder = null) {
+    // if no finder is set we execute this one
+    if(!$finder) $this->getGzip();
+
+    // if finder is a RockFinder2 we execute this one
+    if($finder instanceof RockFinder2) $finder->getGzip();
+
+    // if it is a string get it and execute it
+    $file = $this->getFiles($finder);
+    $this->executeFile($file);
+  }
+
+  /**
+   * Execute sandbox finder
+   */
+  public function executeSandbox() {
+    if(!$this->user->isSuperuser()) {
+      throw new WireException("Only SuperUsers have access to the sandbox");
+    }
+    if($this->input->requestMethod() != 'POST') {
+      throw new WireException("The sandbox supports only POST data");
+    }
+    
+    // get code from input and write it to a temp file
+    $tmp = $this->files->tempDir($this->className);
+    $file = $tmp.uniqid().".php";
+    file_put_contents($file, $this->input->post('code'));
+    $this->executeFile($file);
+  }
+
+  /**
+   * Execute finder file
+   * @param string $file
+   * @return void
+   */
+  public function executeFile($file) {
+    try {
+      $rf = $this->files->render($file);
+      if(!$rf instanceof RockFinder2) {
+        throw new WireException("Your code must return a RockFinder2 instance!");
+      }
+      $rf->getGzip();
+    } catch (\Throwable $th) {
+      echo $th->getMessage();
+      exit();
+    }
+  }
+
+  /**
+   * Get finder by name
+   * @param string $name
+   * @return RockFinder2
+   */
+  public function getByName($name) {
+    if(!$name) throw new WireException("Please specify a name");
+    $file = $this->getFiles($name);
+    if(!$file) throw new WireException("File for $name not found");
+
+    $path = $this->config->paths->assets.$this->className;
+    $rf = $this->files->render($file, [], ['allowedPaths' => [$path]]);
+    if($rf instanceof RockFinder2) return $rf;
+
+    return false;
+  }
+
+  /**
+   * Get all finder files
+   * 
+   * If name is specified return only this single file (case sensitive).
+   * 
+   * @param string $name
+   * @return string|array
+   */
+  public function getFiles($name = null) {
+    $path = $this->config->paths->assets . 'RockFinder2';
+    $files = $this->files->find($path, ['extensions' => ['php']]);
+    if($name) {
+      foreach($files as $file) {
+        if(pathinfo($file)['filename'] == $name) return $file;
+      }
+      throw new WireException("File for $name not found");
+    }
+    return $files;
+  }
+
+  /**
+   * Check API Endpoint Url
+   */
+  public function checkUrl() {
+    // don't check on modules page
+    if($this->page->id == 21) return;
+
+    if(!$this->url) throw new WireException("Url of RockFinder2 must not be empty");
+    if($this->url == '//') throw new WireException("Url of RockFinder2 must not be empty");
   }
 
   /* ########## get data ########## */
@@ -105,11 +266,6 @@ class RockFinder2 extends WireData implements Module {
     echo $this->getJSON();
     ob_end_flush();
     exit();
-  }
-
-  
-  public function foo() {
-    return 'bar';
   }
 
   /**
