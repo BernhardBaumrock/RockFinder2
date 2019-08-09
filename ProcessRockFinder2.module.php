@@ -29,7 +29,6 @@ class ProcessRockFinder2 extends Process {
     $this->headline('RF2 Sandbox');
     $this->wire('processBrowserTitle', 'RF2 Sandbox');
     $form = modules('InputfieldForm');
-
     $form->action = './';
 
     // code field
@@ -54,8 +53,9 @@ class ProcessRockFinder2 extends Process {
     
     $f->name = 'code';
     $f->label = 'Code to execute';
-    $f->value = "<?php"
-      ."\n".'$rf = $this->wire->modules("RockFinder2");'
+    $f->value = "<?php namespace ProcessWire;"
+      ."\n".'$rf = new RockFinder2();'
+      ."\n".'$rf->name = "demo";'
       ."\n".'$rf->selector = "id>2, limit=10";'
       ."\n".'return $rf;';
     $form->add($f);
@@ -76,10 +76,16 @@ class ProcessRockFinder2 extends Process {
     file_put_contents($file, $this->input->post('code'));
 
     // now render this file and get returned rockfinder
-    $rf = $this->files->render($file);
-    if(!$rf instanceof RockFinder2) throw new WireException("Your code must return a RockFinder2 instance!");
-    
-    $rf->getGzip();
+    try {
+      $rf = $this->files->render($file);
+      if(!$rf instanceof RockFinder2) {
+        throw new WireException("Your code must return a RockFinder2 instance!");
+      }
+      $rf->getGzip();
+    } catch (\Throwable $th) {
+      echo $th->getMessage();
+      exit();
+    }
   }
 
 }

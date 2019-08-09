@@ -13,6 +13,8 @@ class RockFinder2 extends WireData implements Module {
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'installs' => ['ProcessRockFinder2'],
+      'autoload' => true,
+      'singular' => true,
     ];
   }
 
@@ -43,6 +45,18 @@ class RockFinder2 extends WireData implements Module {
    * Initialize the module (optional)
    */
   public function init() {
+    // set api variable
+    if(!$this->wire->RockFinder2) {
+      $this->name = 'rf2';
+      $this->wire->set('RockFinder2', $this);
+      return;
+    }
+  }
+
+  /**
+   * Class constructor
+   */
+  public function __construct() {
     $this->name = uniqid();
 
     // default hasAccess callback
@@ -66,7 +80,7 @@ class RockFinder2 extends WireData implements Module {
     if($this->dataObject) return $this->dataObject;
     $this->dataObject = (object)[
       'name' => $this->name,
-      'data' => [1, 2, 3],
+      'data' => [],
       'relations' => [],
       'options' => [],
       'context' => [],
