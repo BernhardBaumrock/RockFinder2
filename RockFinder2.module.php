@@ -56,7 +56,7 @@ class RockFinder2 extends WireData implements Module {
       $this->wire->set('RockFinder2', $this);
       $this->url = "/".trim($this->url, "/")."/";
 
-      // handle API Endpoint
+      // handle API Endpoint requests
       $this->addHookBefore('ProcessPageView::pageNotFound', $this, 'apiEndpoint');
 
       // load JS
@@ -131,6 +131,10 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function execute($finder = null) {
+    // check access
+    if(!is_callable($this->hasAccess)) throw new WireException("hasAccess must be callable");
+    if(!$this->hasAccess->__invoke()) throw new WireException("No access!");
+    
     // if no finder is set we execute this one
     if(!$finder) $this->getGzip();
 
@@ -171,7 +175,7 @@ class RockFinder2 extends WireData implements Module {
       if(!$rf instanceof RockFinder2) {
         throw new WireException("Your code must return a RockFinder2 instance!");
       }
-      $rf->getGzip();
+      $rf->execute();
     } catch (\Throwable $th) {
       echo $th->getMessage();
       exit();
@@ -232,11 +236,7 @@ class RockFinder2 extends WireData implements Module {
    * Return data object
    * @return object
    */
-  public function getData() {
-    // check access
-    if(!is_callable($this->hasAccess)) throw new WireException("hasAccess must be callable");
-    if(!$this->hasAccess->__invoke()) throw new WireException("No access!");
-
+  private function getData() {
     // return data
     if($this->dataObject) return $this->dataObject;
     $this->dataObject = (object)[
@@ -253,14 +253,14 @@ class RockFinder2 extends WireData implements Module {
    * Get JSON data
    * @return string
    */
-  public function getJSON() {
+  private function getJSON() {
     return json_encode($this->getData());
   }
 
   /**
    * Return gzipped data as applicaton/json
    */
-  public function getGzip() {
+  private function getGzip() {
     header('Content-Type: application/json');
     ob_start("ob_gzhandler");
     echo $this->getJSON();
@@ -276,7 +276,7 @@ class RockFinder2 extends WireData implements Module {
     $info = $this->settings ?: [];
     $info['name'] = $this->name;
     $info['selector'] = $this->selector;
-    $info['getData()'] = $this->getData();
+    $info['execute()'] = $this->execute();
     return $info; 
   }
 }
