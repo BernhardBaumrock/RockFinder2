@@ -37,14 +37,29 @@ class RockFinder2 extends WireData implements Module {
   public $name;
 
   /**
-   * @var string pw-selector to find base pages
+   * @var array|string pw-selector to find base pages
    */
   public $selector;
 
   /**
-   * @var WireData config data for JavaScript
+   * The query to get all ids of selected pages
+   * @var DatabaseQuerySelect
    */
-  private $jsConfig;
+  private $idQuery;
+
+  /**
+   * The query that selects all columns (final data) for this finder
+   * @var DatabaseQuerySelect
+   */
+  private $query;
+
+  /**
+   * array of all column types
+   * @var array
+   */
+  private $columnTypes = [];
+
+  /* ########## init ########## */
 
   /**
    * Initialize the module (optional)
@@ -95,6 +110,8 @@ class RockFinder2 extends WireData implements Module {
       return $this->user->isSuperuser();
     };
   }
+
+  /* ########## general ########## */
 
   /**
    * Handle API Endpoint requests
@@ -230,6 +247,123 @@ class RockFinder2 extends WireData implements Module {
     if($this->url == '//') throw new WireException("Url of RockFinder2 must not be empty");
   }
 
+  /* ########## sql query constructor ########## */
+
+  /**
+   * Set selector of this finder
+   * @param string|array $selector
+   * @return void
+   */
+  public function selector($selector) {
+    $this->selector = $selector;
+    
+    // get ids of base selector
+    $selector = $this->wire(new Selectors($selector));
+    $pf = $this->wire(new PageFinder());
+    $query = $pf->find($selector, ['returnQuery' => true]);
+    $query->set('select', ['pages.id']);
+
+    // save this query object for later
+    $this->query = $query;
+
+    // idQuery is the minimal query that is used for joins and relations
+    $this->idQuery = clone $query;
+  }
+
+  /**
+   * Get main data from PW selector
+   */
+  public function getMainData() {
+    $data = [];
+
+    $result = $this->query->execute();
+    // d($this->query);
+    db($result->queryString, 'all');
+    d($result->fetchAll(\PDO::FETCH_OBJ));
+    
+    $result = $this->idQuery->execute();
+    // d($this->idQuery);
+    db($result->queryString, 'ids');
+    d(implode("|", $result->fetchAll(\PDO::FETCH_COLUMN)));
+
+    return $data;
+  }
+
+  /**
+   * Add columns to finder
+   * @param array $columns
+   */
+  public function addColumns($columns) {
+    if(!$this->query) throw new WireException("Setup the selector before calling addColumns()");
+    if(!is_array($columns)) throw new WireException("Parameter must be an array");
+
+    // add columns one by one
+    foreach($columns as $k=>$v) {
+      // if key is integer we take the value instead
+      if(is_int($k)) {
+        $k = $v;
+        $v = null;
+      }
+
+      // setup initial field value
+      $field = $k;
+
+      // if a type is set, get type
+      // syntax is type:field, eg addColumns(['mytype:myfield'])
+      $type = null;
+      if(strpos($field, ":")) {
+        $arr = explode(":", $field);
+        $type = $arr[0];
+        $field = $arr[1];
+      }
+
+      // field name alias
+      $alias = $v;
+
+      // add this column
+      $this->addColumn($field, $type, $alias);
+    }
+  }
+
+  /**
+   * Add column to finder
+   * @param mixed $field
+   * @param mixed $type
+   * @param mixed $alias
+   * @return void
+   */
+  private function addColumn($field, $type = null, $alias = null) {
+    if(!$type) $type = 'default';
+    if(!$alias) $alias = $field;
+
+    // get column types
+    if(!count($this->columnTypes)) {
+      $this->columnTypes = $this->getColumnTypes();
+    }
+    $types = $this->columnTypes;
+    
+    // get column function to execute
+    $closure = $types[$type];
+    $closure->__invoke($field, $alias);
+  }
+
+  /**
+   * Get all columntypes
+   * 
+   * @return WireArray
+   */
+  public function ___getColumnTypes() {
+    $types = [];
+
+    $types['default'] = function($field, $alias) {
+      $table = $this->database->escapeTable("field_$field");
+      $this->query->leftjoin("$table ON $table.pages_id=pages.id");
+      $this->query->select("field_$field.data as $alias");
+    };
+
+    return $types;
+  }
+
   /* ########## get data ########## */
 
   /**
@@ -241,7 +375,7 @@ class RockFinder2 extends WireData implements Module {
     if($this->dataObject) return $this->dataObject;
     $this->dataObject = (object)[
       'name' => $this->name,
-      'data' => [],
+      'data' => $this->getMainData(),
       'relations' => [],
       'options' => [],
       'context' => [],
@@ -276,7 +410,7 @@ class RockFinder2 extends WireData implements Module {
     $info = $this->settings ?: [];
     $info['name'] = $this->name;
     $info['selector'] = $this->selector;
-    $info['execute()'] = $this->execute();
+    $info['getData()'] = $this->getData();
     return $info; 
   }
 }
