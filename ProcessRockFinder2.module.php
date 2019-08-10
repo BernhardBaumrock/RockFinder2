@@ -98,6 +98,7 @@ class ProcessRockFinder2 extends Process {
     
     $f->name = 'code';
     $f->label = 'Code to execute';
+    $f->icon = 'code';
     $f->wrapAttr('data-name', $name);
     $f->value = $code;
     $form->add($f);
@@ -107,7 +108,7 @@ class ProcessRockFinder2 extends Process {
       'type' => 'markup',
       'name' => 'debug',
       'label' => 'Debug Info',
-      'icon' => 'code',
+      'icon' => 'bug',
       'value' => $this->files->render(__DIR__ . '/includes/debuginfo.php'),
     ]);
 
