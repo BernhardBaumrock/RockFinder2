@@ -54,10 +54,14 @@ class RockFinder2 extends WireData implements Module {
   private $query;
 
   /**
-   * array of all column types
-   * @var array
+   * Array of column names in 'pages' DB table
    */
-  private $columnTypes = [];
+  public $baseColumns;
+
+  /**
+   * Reference to RockFinder2 api variable
+   */
+  public $rf;
 
   /* ########## init ########## */
 
@@ -65,11 +69,20 @@ class RockFinder2 extends WireData implements Module {
    * Initialize the module (optional)
    */
   public function init() {
-    // set api variable
+    // set api variable on first run
     if(!$this->wire->RockFinder2) {
       $this->name = 'rf2';
       $this->wire->set('RockFinder2', $this);
       $this->url = "/".trim($this->url, "/")."/";
+      
+      // get base table columns
+      // this is only attached to the base instance for better performance
+      $db = $this->config->dbName;
+      $result = $this->database->query("SELECT `COLUMN_NAME`
+        FROM `INFORMATION_SCHEMA`.`COLUMNS`
+        WHERE `TABLE_SCHEMA`='$db'
+        AND `TABLE_NAME`='pages';");
+      $this->baseColumns = $result->fetchAll(\PDO::FETCH_COLUMN);
 
       // handle API Endpoint requests
       $this->addHookBefore('ProcessPageView::pageNotFound', $this, 'apiEndpoint');
@@ -87,9 +100,13 @@ class RockFinder2 extends WireData implements Module {
         ]);
         $event->return = str_replace('</head>', $code.'</head>', $html);
       });
-
-      return;
     }
+
+    // Add reference to RockFinder2 api var to this instance
+    $this->rf = $this->wire->RockFinder2;
+
+    // attach column types via hook
+    $this->addHookAfter("RockFinder2::getCol", $this, 'addColumnTypes');
   }
   
   /**
@@ -133,13 +150,13 @@ class RockFinder2 extends WireData implements Module {
     if($name) {
       $finder = $this->getByName($name);
       if($finder) $finder->execute();
+      else throw new WireException("$name returns invalid result");
     }
     else {
       $this->executeSandbox();
     }
 
-    // execute finder
-    // log errors (status codes)
+    // todo: log errors (status codes)
   }
 
   /**
@@ -271,25 +288,6 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
-   * Get main data from PW selector
-   */
-  public function getMainData() {
-    $data = [];
-
-    $result = $this->query->execute();
-    // d($this->query);
-    db($result->queryString, 'all');
-    d($result->fetchAll(\PDO::FETCH_OBJ));
-    
-    $result = $this->idQuery->execute();
-    // d($this->idQuery);
-    db($result->queryString, 'ids');
-    d(implode("|", $result->fetchAll(\PDO::FETCH_COLUMN)));
-
-    return $data;
-  }
-
-  /**
    * Add columns to finder
    * @param array $columns
    */
@@ -305,63 +303,111 @@ class RockFinder2 extends WireData implements Module {
         $v = null;
       }
 
-      // setup initial field value
-      $field = $k;
+      // setup initial column name
+      $column = $k;
 
       // if a type is set, get type
-      // syntax is type:field, eg addColumns(['mytype:myfield'])
+      // syntax is type:column, eg addColumns(['mytype:myColumn'])
       $type = null;
-      if(strpos($field, ":")) {
-        $arr = explode(":", $field);
+      if(strpos($column, ":")) {
+        $arr = explode(":", $column);
         $type = $arr[0];
-        $field = $arr[1];
+        $column = $arr[1];
       }
 
-      // field name alias
+      // column name alias
       $alias = $v;
 
       // add this column
-      $this->addColumn($field, $type, $alias);
+      $this->addColumn($column, $type, $alias);
     }
   }
 
   /**
    * Add column to finder
-   * @param mixed $field
+   * @param mixed $column
    * @param mixed $type
    * @param mixed $alias
    * @return void
    */
-  private function addColumn($field, $type = null, $alias = null) {
-    if(!$type) $type = 'default';
-    if(!$alias) $alias = $field;
+  private function addColumn($column, $type = null, $alias = null) {
+    if(!$type) $type = $this->getType($column);
+    if(!$alias) $alias = $column;
+    $query = $this->query;
 
-    // get column types
-    if(!count($this->columnTypes)) {
-      $this->columnTypes = $this->getColumnTypes();
+    // get column type definition
+    $col = $this->getCol($type);
+    if(!$col OR !is_callable($col)) {
+      $col = $this->getCol(); // get default coldef
     }
-    $types = $this->columnTypes;
-    
-    // get column function to execute
-    $closure = $types[$type];
-    $closure->__invoke($field, $alias);
+
+    // invoke callable
+    $col->__invoke((object)[
+      'query' => $query,
+      'column' => $column,
+      'alias' => $alias,
+      'type' => $type,
+    ]);
   }
 
   /**
-   * Get all columntypes
+   * Get column type from column name
    * 
-   * @return WireArray
+   * @param string $column
+   * @return string
    */
-  public function ___getColumnTypes() {
-    $types = [];
+  public function ___getType($column) {
+    // is this column part of the pages table?
+    $columns = $this->wire->RockFinder2->baseColumns;
+    if(in_array($column, $columns)) return 'BaseColumn';
 
-    $types['default'] = function($field, $alias) {
-      $table = $this->database->escapeTable("field_$field");
-      $this->query->leftjoin("$table ON $table.pages_id=pages.id");
-      $this->query->select("field_$field.data as $alias");
-    };
+    // is it a pw field?
+    $field = $this->fields->get($column);
+    if($field) {
+      switch($field->type) {
+        // by default we treat every field as a standard text field
+        default:
+          return 'FieldText';
+      }
+    }
+  }
 
-    return $types;
+  /**
+   * Hookable getCol method for column definitions
+   * @return Closure
+   */
+  public function ___getCol($type = null) {}
+
+  /**
+   * Get column types via hook
+   */
+  public function addColumnTypes($event) {
+    $type = $event->arguments('type');
+    switch($type) {
+
+      // column of the pages table
+      case 'BaseColumn':
+        $event->return = function($data) {
+          $data->query->select("{$data->column} AS {$data->alias}");
+        };
+        return;
+
+      // default pw field
+      case 'FieldText':
+        $event->return = function($data) {
+          $table = $this->wire->database->escapeTable("field_{$data->column}");
+          $data->query->leftjoin("$table ON $table.pages_id=pages.id");
+          $data->query->select("field_{$data->column}.data as {$data->alias}");
+        };
+        return;
+
+      // default fallback
+      default:
+        $event->return = function($data) {
+          $data->query->select("'No column type found for type {$data->type}' AS {$data->alias}");
+        };
+        return;
+    }
   }
 
   /* ########## get data ########## */
@@ -376,11 +422,54 @@ class RockFinder2 extends WireData implements Module {
     $this->dataObject = (object)[
       'name' => $this->name,
       'data' => $this->getMainData(),
-      'relations' => [],
-      'options' => [],
-      'context' => [],
+      'relations' => $this->getRelations(),
+      'options' => $this->getOptions(),
+      'context' => $this->getContext(),
     ];
     return $this->dataObject;
+  }
+
+  /**
+   * Get main data from PW selector
+   */
+  public function getMainData() {
+    if(!$this->query) return [];
+
+    $result = $this->query->execute();
+    // d($this->query);
+    // db($result->queryString, 'all');
+    return $result->fetchAll(\PDO::FETCH_OBJ);
+    
+    // $result = $this->idQuery->execute();
+    // d($this->idQuery);
+    // db($result->queryString, 'ids');
+    // d(implode("|", $result->fetchAll(\PDO::FETCH_COLUMN)));
+
+    // return $data;
+  }
+
+  /**
+   * Get relations
+   * @return array
+   */
+  public function getRelations() {
+    return [];
+  }
+
+  /**
+   * Get options
+   * @return array
+   */
+  public function getOptions() {
+    return [];
+  }
+
+  /**
+   * Get context
+   * @return array
+   */
+  public function getContext() {
+    return [];
   }
 
   /**

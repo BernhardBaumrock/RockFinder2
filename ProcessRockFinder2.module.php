@@ -49,6 +49,7 @@ class ProcessRockFinder2 extends Process {
     }
     $out .= '</tbody>';
     $out .= '</table>';
+    $out .= "<p><a href='./sandbox'>Open Sandbox</a></p>";
 
     return $out;
   }
