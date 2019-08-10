@@ -487,19 +487,49 @@ class RockFinder2 extends WireData implements Module {
   public function getData() {
     $this->checkAccess();
 
+    // timings
+      $timings = [];
+      $start = $previous = microtime(true);
+
+      $data = $this->getMainData();
+      $now = microtime(true);
+      $timings['data'] = $now - $previous;
+      $previous = $now;
+
+      $relations = $this->getRelations();
+      $now = microtime(true);
+      $timings['relations'] = $now - $previous;
+      $previous = $now;
+
+      $options = $this->getOptions();
+      $now = microtime(true);
+      $timings['options'] = $now - $previous;
+      $previous = $now;
+      
+      $context = $this->getContext();
+      $now = microtime(true);
+      $timings['context'] = $now - $previous;
+      $previous = $now;
+
+      $timings['total'] = $now - $start;
+
+      // convert to ms and round to 2 digits
+      foreach($timings as $k=>$v) $timings[$k] = round($v*1000, 2);
+
     // return data
     if($this->dataObject) return $this->dataObject;
     $this->dataObject = (object)[
       'name' => $this->name,
-      'data' => $this->getMainData(),
-      'relations' => $this->getRelations(),
-      'options' => $this->getOptions(),
-      'context' => $this->getContext(),
+      'data' => $data,
+      'relations' => $relations,
+      'options' => $options,
+      'context' => $context,
     ];
 
     // additional information for sandbox requests
     if($this->sandbox) {
       $this->dataObject->sql = $this->getSQL();
+      $this->dataObject->exec_ms = $timings;
     }
 
     return $this->dataObject;
