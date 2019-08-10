@@ -1,16 +1,24 @@
 $(document).ready(function() {
-  var code = localStorage.getItem('rockfinder2_code');
+  // get current finder name
+  var $field = $('#wrap_Inputfield_code');
+  var $debug = $('#debuginfo');
+  var name = $field.data('name');
+
+  // load code from browser, but only when no name is set
+  // this makes sure that if a name is set, the code is always
+  // the same as in the corresponding file
+  var code;
+  if(!name) code = localStorage.getItem('RockFinder2_code');
 
   // get ace editor
   var editor;
 
   // setup spinner
-  var $el = $('#wrap_Inputfield_code > .InputfieldHeader');
   var $spinner = $('<i class="fa fa-spin fa-spinner" style="margin-left: 10px;"></i>');
 
   // ajax function
   var sendAJAX = function() {
-    $spinner.hide().appendTo($el).fadeIn();
+    $spinner.hide().appendTo($debug.closest('.Inputfield').find('>.InputfieldHeader')).fadeIn();
 
     // get value
     if(typeof ace != "undefined") {
@@ -21,13 +29,21 @@ $(document).ready(function() {
     }
 
     // save code to localStorage
-    localStorage.setItem('rockfinder2_code', code);
+    if(!name) localStorage.setItem('RockFinder2_code', code);
 
     // get data and log it to console
     $.post(RockFinder2.conf.url, {
       code: code,
     }).done(function(data) {
       console.log(data);
+
+      // update div
+      $debug.fadeOut(function() {
+        $('.sql').text(data.sql);
+        document.querySelectorAll('pre code').forEach((block) => {
+          hljs.highlightBlock(block);
+        });
+      }).fadeIn();
     }).fail(function(data) {
       alert('Rquest failed, see console');
       console.error(data);
@@ -38,6 +54,9 @@ $(document).ready(function() {
 
   // onload
   $(window).load(function() {
+    // early exit on overview page
+    if(!$('#sandboxform').length) return;
+
     if(typeof ace != 'undefined') {
       editor = ace.edit('InputfieldAceExtended_code_editor');
     }

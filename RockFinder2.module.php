@@ -51,7 +51,7 @@ class RockFinder2 extends WireData implements Module {
    * The query that selects all columns (final data) for this finder
    * @var DatabaseQuerySelect
    */
-  private $query;
+  public $query;
 
   /**
    * Array of column names in 'pages' DB table
@@ -62,6 +62,12 @@ class RockFinder2 extends WireData implements Module {
    * Reference to RockFinder2 api variable
    */
   public $rf;
+
+  /**
+   * Flag that indicates if we are in a sandbox request
+   * @var bool
+   */
+  public $sandbox;
 
   /* ########## init ########## */
 
@@ -165,9 +171,7 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function execute($finder = null) {
-    // check access
-    if(!is_callable($this->hasAccess)) throw new WireException("hasAccess must be callable");
-    if(!$this->hasAccess->__invoke()) throw new WireException("No access!");
+    $this->checkAccess();
     
     // if no finder is set we execute this one
     if(!$finder) $this->getGzip();
@@ -195,25 +199,39 @@ class RockFinder2 extends WireData implements Module {
     $tmp = $this->files->tempDir($this->className);
     $file = $tmp.uniqid().".php";
     file_put_contents($file, $this->input->post('code'));
-    $this->executeFile($file);
+    $this->executeFile($file, true);
   }
 
   /**
    * Execute finder file
    * @param string $file
+   * @param bool $sandbox are we in the sandbox?
    * @return void
    */
-  public function executeFile($file) {
+  public function executeFile($file, $sandbox = false) {
     try {
+      /** @var RockFinder2 $rf */
       $rf = $this->files->render($file);
       if(!$rf instanceof RockFinder2) {
         throw new WireException("Your code must return a RockFinder2 instance!");
       }
+      $rf->sandbox = $sandbox;
       $rf->execute();
     } catch (\Throwable $th) {
       echo $th->getMessage();
       exit();
     }
+  }
+
+  /**
+   * Check access to this finder
+   * @return bool
+   */
+  public function checkAccess() {
+    // check access
+    if(!is_callable($this->hasAccess)) throw new WireException("hasAccess must be callable");
+    if(!$this->hasAccess->__invoke()) throw new WireException("No access!");
+    return true;
   }
 
   /**
@@ -269,16 +287,28 @@ class RockFinder2 extends WireData implements Module {
   /**
    * Set selector of this finder
    * @param string|array $selector
+   * @param array $options
    * @return void
    */
-  public function selector($selector) {
+  public function selector($selector, $options = []) {
     $this->selector = $selector;
+    $defaults = [
+      // ignore sort order of initial page find operation
+      // this can significantly increase performance 
+      'nosort' => false,
+    ];
+    $options = array_merge($defaults, $options);
     
     // get ids of base selector
     $selector = $this->wire(new Selectors($selector));
     $pf = $this->wire(new PageFinder());
     $query = $pf->find($selector, ['returnQuery' => true]);
+
+    // modify the base query to our needs
+    // we only need the page id
     $query->set('select', ['pages.id']);
+    // if possible ignore sort order for better performance
+    if($options['nosort']) $query->set('orderby', []);
 
     // save this query object for later
     $this->query = $query;
@@ -364,12 +394,14 @@ class RockFinder2 extends WireData implements Module {
     // is it a pw field?
     $field = $this->fields->get($column);
     if($field) {
-      switch($field->type) {
-        // by default we treat every field as a standard text field
-        default:
-          return 'FieldText';
-      }
+      // file and image fields
+      if($field->type instanceof FieldtypeFile) return 'FieldMulti';
+      if($field->type instanceof FieldtypePage) return 'FieldMulti';
+
+      // by default we take it as text field
+      return 'FieldText';
     }
+    else return 'FieldNotFound';
   }
 
   /**
@@ -388,26 +420,62 @@ class RockFinder2 extends WireData implements Module {
       // column of the pages table
       case 'BaseColumn':
         $event->return = function($data) {
-          $data->query->select("{$data->column} AS {$data->alias}");
+          $data->query->select("`{$data->column}` AS `{$data->alias}`");
         };
         return;
 
       // default pw field
       case 'FieldText':
         $event->return = function($data) {
-          $table = $this->wire->database->escapeTable("field_{$data->column}");
-          $data->query->leftjoin("$table ON $table.pages_id=pages.id");
-          $data->query->select("field_{$data->column}.data as {$data->alias}");
+          $table = $this->getTable($data->column);
+          $tablealias = $this->getTableAlias($data->column);
+          $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
+          $data->query->select("`$tablealias`.data AS `$data->alias`");
+        };
+        return;
+
+      // pw file/image field
+      case 'FieldMulti':
+        $event->return = function($data) {
+          $table = $this->getTable($data->column);
+          $tablealias = $this->getTableAlias($data->column);
+          $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
+          $data->query->select("GROUP_CONCAT(DISTINCT `$tablealias`.data ORDER BY `$tablealias`.sort SEPARATOR ',') AS `$data->alias`");
+        };
+        return;
+        
+      // default pw field
+      case 'FieldNotFound':
+        $event->return = function($data) {
+          $data->query->select("'Field not found' AS `$data->alias`");
         };
         return;
 
       // default fallback
       default:
         $event->return = function($data) {
-          $data->query->select("'No column type found for type {$data->type}' AS {$data->alias}");
+          $data->query->select("'No column type found for type {$data->type}' AS `{$data->alias}`");
         };
         return;
     }
+  }
+
+  /**
+   * Get table name for this column
+   * @param string $column
+   * @return string
+   */
+  public function getTable($column) {
+    return "field_$column";
+  }
+  
+  /**
+   * Get table alias name for this column
+   * @param string $column
+   * @return string
+   */
+  public function getTableAlias($column) {
+    return "_".$this->getTable($column);
   }
 
   /* ########## get data ########## */
@@ -416,7 +484,9 @@ class RockFinder2 extends WireData implements Module {
    * Return data object
    * @return object
    */
-  private function getData() {
+  public function getData() {
+    $this->checkAccess();
+
     // return data
     if($this->dataObject) return $this->dataObject;
     $this->dataObject = (object)[
@@ -426,6 +496,12 @@ class RockFinder2 extends WireData implements Module {
       'options' => $this->getOptions(),
       'context' => $this->getContext(),
     ];
+
+    // additional information for sandbox requests
+    if($this->sandbox) {
+      $this->dataObject->sql = $this->getSQL();
+    }
+
     return $this->dataObject;
   }
 
@@ -433,6 +509,7 @@ class RockFinder2 extends WireData implements Module {
    * Get main data from PW selector
    */
   public function getMainData() {
+    $this->checkAccess();
     if(!$this->query) return [];
 
     $result = $this->query->execute();
@@ -453,6 +530,7 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getRelations() {
+    $this->checkAccess();
     return [];
   }
 
@@ -461,6 +539,7 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getOptions() {
+    $this->checkAccess();
     return [];
   }
 
@@ -469,6 +548,7 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getContext() {
+    $this->checkAccess();
     return [];
   }
 
@@ -478,6 +558,14 @@ class RockFinder2 extends WireData implements Module {
    */
   private function getJSON() {
     return json_encode($this->getData());
+  }
+
+  /**
+   * Return current sql query string
+   * @return string
+   */
+  public function getSQL() {
+    return $this->query->getQuery();
   }
 
   /**

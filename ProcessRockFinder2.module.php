@@ -62,6 +62,7 @@ class ProcessRockFinder2 extends Process {
     $this->wire('processBrowserTitle', 'RF2 Sandbox');
     $form = modules('InputfieldForm');
     $form->action = './';
+    $form->id = 'sandboxform';
     $out = '';
 
     $out .= '<p><a href="'.$this->page->url.'">< Back to overview</a></p>';
@@ -97,8 +98,18 @@ class ProcessRockFinder2 extends Process {
     
     $f->name = 'code';
     $f->label = 'Code to execute';
+    $f->wrapAttr('data-name', $name);
     $f->value = $code;
     $form->add($f);
+
+    // add debug field
+    $form->add([
+      'type' => 'markup',
+      'name' => 'debug',
+      'label' => 'Debug Info',
+      'icon' => 'code',
+      'value' => $this->files->render(__DIR__ . '/includes/debuginfo.php'),
+    ]);
 
     $out .= $form->render();
     return $out;
