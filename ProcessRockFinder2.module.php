@@ -84,7 +84,7 @@ class ProcessRockFinder2 extends Process {
     }
     
     $f->notes = "Execute on CTRL+ENTER or ALT+ENTER";
-    $f->description = "The code must return a RockFinder2 instance, Result will be logged to the browser console!";
+    $f->description = "The code must return a RockFinder2 instance!";
     if(!$ace) $f->notes .= "\nYou can install 'InputfieldAceExtended' for better code editing";
 
     // get code
@@ -109,7 +109,7 @@ class ProcessRockFinder2 extends Process {
       'name' => 'debug',
       'label' => 'Debug Info',
       'icon' => 'bug',
-      'value' => $this->files->render(__DIR__ . '/includes/debuginfo.php'),
+      'value' => '<div id="debuginfo" style="display: none;"></div>',
     ]);
 
     $out .= $form->render();

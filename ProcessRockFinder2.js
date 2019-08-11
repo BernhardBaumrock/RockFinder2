@@ -32,17 +32,14 @@ $(document).ready(function() {
     if(!name) localStorage.setItem('RockFinder2_code', code);
 
     // get data and log it to console
-    $.post(RockFinder2.conf.url, {
+    $.post(RockFinder2.conf.url + " #output", {
       code: code,
+      type: 'debug',
     }).done(function(data) {
-      console.log(data);
-
       // update div
       $debug.fadeOut(function() {
-        $('.sql').text(data.sql);
-        document.querySelectorAll('pre code').forEach((block) => {
-          hljs.highlightBlock(block);
-        });
+        $debug.html(data);
+        $debug.find('.tracy-dump-object').click();
       }).fadeIn();
     }).fail(function(data) {
       alert('Rquest failed, see console');

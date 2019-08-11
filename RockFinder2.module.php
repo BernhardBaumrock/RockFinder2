@@ -12,6 +12,7 @@ class RockFinder2 extends WireData implements Module {
       'version' => '0.0.1',
       'summary' => 'RockFinder2',
       'icon' => 'search',
+      'requires' => ['TracyDebugger'],
       'installs' => ['ProcessRockFinder2'],
       'autoload' => true,
       'singular' => true,
@@ -64,10 +65,10 @@ class RockFinder2 extends WireData implements Module {
   public $rf;
 
   /**
-   * Flag that indicates if we are in a sandbox request
+   * Show debug info?
    * @var bool
    */
-  public $sandbox;
+  public $debug;
 
   /* ########## init ########## */
 
@@ -113,6 +114,10 @@ class RockFinder2 extends WireData implements Module {
 
     // attach column types via hook
     $this->addHookAfter("RockFinder2::getCol", $this, 'addColumnTypes');
+
+    // attach renderers
+    $this->addHookAfter("RockFinder2::render(debug)", $this, 'debugRenderer');
+    $this->addHookAfter("RockFinder2::render(gzip)", $this, 'gzipRenderer');
   }
   
   /**
@@ -171,18 +176,41 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function execute($finder = null) {
-    $this->checkAccess();
-    
     // if no finder is set we execute this one
-    if(!$finder) $this->getGzip();
+    if(!$finder) $this->output();
 
     // if finder is a RockFinder2 we execute this one
-    if($finder instanceof RockFinder2) $finder->getGzip();
+    if($finder instanceof RockFinder2) $finder->output();
 
     // if it is a string get it and execute it
     $file = $this->getFiles($finder);
     $this->executeFile($file);
   }
+
+  /**
+   * Send output to browser
+   * 
+   * This method can be hooked so you can attach custom renderers.
+   * 
+   * @return void
+   */
+  public function output() {
+    $type = $this->input->get('type', 'string');
+    if(!$type) $type = $this->input->post('type', 'string');
+    if(!$type) $type = 'gzip';
+
+    $this->checkAccess($type);
+    echo $this->render($type);
+    die();
+  }
+
+  /**
+   * Render content of this finder
+   * 
+   * By default this returns gzip data as application/json. This can be 
+   * modified via hooks, so you can attach all kinds of custom renderers.
+   */
+  public function ___render($type) {}
 
   /**
    * Execute sandbox finder
@@ -192,7 +220,7 @@ class RockFinder2 extends WireData implements Module {
       throw new WireException("Only SuperUsers have access to the sandbox");
     }
     if($this->input->requestMethod() != 'POST') {
-      throw new WireException("The sandbox supports only POST data");
+      throw new WireException("The sandbox is only available via POST");
     }
     
     // get code from input and write it to a temp file
@@ -205,17 +233,17 @@ class RockFinder2 extends WireData implements Module {
   /**
    * Execute finder file
    * @param string $file
-   * @param bool $sandbox are we in the sandbox?
+   * @param bool $debug are we in the debug mode?
    * @return void
    */
-  public function executeFile($file, $sandbox = false) {
+  public function executeFile($file, $debug = false) {
     try {
       /** @var RockFinder2 $rf */
       $rf = $this->files->render($file);
       if(!$rf instanceof RockFinder2) {
         throw new WireException("Your code must return a RockFinder2 instance!");
       }
-      $rf->sandbox = $sandbox;
+      $rf->debug = $debug;
       $rf->execute();
     } catch (\Throwable $th) {
       echo $th->getMessage();
@@ -225,12 +253,13 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Check access to this finder
+   * @param string $type
    * @return bool
    */
-  public function checkAccess() {
+  public function checkAccess($type = null) {
     // check access
     if(!is_callable($this->hasAccess)) throw new WireException("hasAccess must be callable");
-    if(!$this->hasAccess->__invoke()) throw new WireException("No access!");
+    if(!$this->hasAccess->__invoke($type)) throw new WireException("No access!");
     return true;
   }
 
@@ -485,8 +514,6 @@ class RockFinder2 extends WireData implements Module {
    * @return object
    */
   public function getData() {
-    $this->checkAccess();
-
     // timings
       $timings = [];
       $start = $previous = microtime(true);
@@ -526,8 +553,8 @@ class RockFinder2 extends WireData implements Module {
       'context' => $context,
     ];
 
-    // additional information for sandbox requests
-    if($this->sandbox) {
+    // additional information for debug requests
+    if($this->debug) {
       $this->dataObject->sql = $this->getSQL();
       $this->dataObject->exec_ms = $timings;
     }
@@ -539,7 +566,6 @@ class RockFinder2 extends WireData implements Module {
    * Get main data from PW selector
    */
   public function getMainData() {
-    $this->checkAccess();
     if(!$this->query) return [];
 
     $result = $this->query->execute();
@@ -560,7 +586,6 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getRelations() {
-    $this->checkAccess();
     return [];
   }
 
@@ -569,7 +594,6 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getOptions() {
-    $this->checkAccess();
     return [];
   }
 
@@ -578,7 +602,6 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getContext() {
-    $this->checkAccess();
     return [];
   }
 
@@ -586,7 +609,7 @@ class RockFinder2 extends WireData implements Module {
    * Get JSON data
    * @return string
    */
-  private function getJSON() {
+  public function getJSON() {
     return json_encode($this->getData());
   }
 
@@ -598,16 +621,49 @@ class RockFinder2 extends WireData implements Module {
     return $this->query->getQuery();
   }
 
+  /* ########## renderers ########## */
+  
   /**
-   * Return gzipped data as applicaton/json
+   * Debug renderer
+   * 
+   * This renderer is used for debugging.
+   * 
+   * @param HookEvent $event
+   * @return void
    */
-  private function getGzip() {
+  public function debugRenderer($event) {
+    if(!$this->user->isSuperuser()) {
+      throw new WireException("Debug feature may only be used by Superusers!");
+    }
+    
+    $finder = $event->object;
+    $finder->debug = true;
+    $finder->getData();
+
+    ob_start();
+    \TD::dumpBig($finder);
+    $dump = ob_get_clean();
+
+    $event->return = "<div class='tracy-inner'>$dump</div>";
+  }
+
+  /**
+   * Gzip renderer
+   * 
+   * This is the default renderer for returning gzipped json data.
+   * 
+   * @param HookEvent $event
+   * @return void
+   */
+  public function gzipRenderer($event) {
+    $finder = $event->object;
     header('Content-Type: application/json');
     ob_start("ob_gzhandler");
-    echo $this->getJSON();
-    ob_end_flush();
-    exit();
+    echo $finder->getJSON();
+    $event->return = ob_end_flush();
   }
+
+  /* ########## debug info ########## */
 
   /**
    * debugInfo PHP 5.6+ magic method
