@@ -2,13 +2,16 @@
 $js = "<script>var finder = new _RockFinder2('$json');</script>";
 
 if($input->requestMethod() == 'POST') {
-  echo $dump;
-  echo $js;
-  echo "<div class='tracy-inner'>"
-    ."<small>A JavaScript instance of RockFinder2 with data of this finder"
-    ." is available in the console as 'finder' .</small>"
-    ."</div>";
-  return;
+  header('Content-Type: application/json');
+  echo json_encode([
+    'html' => $dump.$js
+      ."<div class='tracy-inner'>"
+      ."<small>A JavaScript instance of RockFinder2 with data of this finder"
+      ." is available in the console as 'finder' .</small>"
+      ."</div>",
+    'finder' => $finder,
+  ]);
+  die();
 }
 ?><!DOCTYPE html>
 <html lang="en">

@@ -1,8 +1,10 @@
+var grid;
 $(document).ready(function() {
   // get current finder name
   var $field = $('#wrap_Inputfield_code');
   var $debug = $('#debuginfo');
   var name = $field.data('name');
+  var hasTabulator = $('.RockTabulatorWrapper').length;
 
   // load code from browser, but only when no name is set
   // this makes sure that if a name is set, the code is always
@@ -18,7 +20,7 @@ $(document).ready(function() {
 
   // ajax function
   var sendAJAX = function() {
-    $spinner.hide().appendTo($debug.closest('.Inputfield').find('>.InputfieldHeader')).fadeIn();
+    $spinner.hide().appendTo($field.closest('.Inputfield').find('>.InputfieldHeader')).fadeIn();
 
     // get value
     if(typeof ace != "undefined") {
@@ -30,6 +32,9 @@ $(document).ready(function() {
 
     // save code to localStorage
     if(!name) localStorage.setItem('RockFinder2_code', code);
+    
+    var $tabulator = $('.RockTabulatorWrapper');
+    $tabulator.find('.loading').fadeIn();
 
     // get data and log it to console
     $.post(RockFinder2.conf.url + " #output", {
@@ -38,9 +43,25 @@ $(document).ready(function() {
     }).done(function(data) {
       // update div
       $debug.fadeOut(function() {
-        $debug.html(data);
+        $debug.html(data.html);
         $debug.find('.tracy-dump-object').click();
       }).fadeIn();
+
+      // update tabulator
+      if(hasTabulator) {
+        grid = RockTabulator.getGrid('RockTabulator');
+        if(!grid) {
+          // init grid
+          grid = RockTabulator.init($tabulator, {data: data.finder.data});
+        }
+        else {
+          // update grid
+          grid.table.setData(data.finder.data);
+        }
+
+        $tabulator.find('.loading').fadeOut();
+      }
+
     }).fail(function(data) {
       alert('Rquest failed, see console');
       console.error(data);

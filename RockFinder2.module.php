@@ -120,6 +120,14 @@ class RockFinder2 extends WireData implements Module {
     // attach renderers
     $this->addHookAfter("RockFinder2::render(debug)", $this, 'debugRenderer');
     $this->addHookAfter("RockFinder2::render(gzip)", $this, 'gzipRenderer');
+
+    // add dir to RockTabulator
+    $this->addHookAfter('RockTabulator::getDirs', function($event) {
+      $rt = $event->object;
+      $dirs = $event->return;
+      $dirs[] = $rt->toUrl(__DIR__ . '/tabulators');
+      $event->return = $dirs;
+    });
   }
   
   /**
@@ -333,7 +341,7 @@ class RockFinder2 extends WireData implements Module {
    * @param array $options
    * @return void
    */
-  public function selector($selector, $options = []) {
+  public function find($selector, $options = []) {
     $this->selector = $selector;
     $defaults = [
       // ignore sort order of initial page find operation
@@ -349,7 +357,7 @@ class RockFinder2 extends WireData implements Module {
 
     // modify the base query to our needs
     // we only need the page id
-    $query->set('select', ['pages.id']);
+    $query->set('select', ['`pages`.`id`']);
     // if possible ignore sort order for better performance
     if($options['nosort']) $query->set('orderby', []);
 
@@ -462,6 +470,7 @@ class RockFinder2 extends WireData implements Module {
       // file and image fields
       if($field->type instanceof FieldtypeFile) return 'FieldMulti';
       if($field->type instanceof FieldtypePage) return 'FieldMulti';
+      if($field->type instanceof FieldtypeOptions) return 'FieldMulti';
 
       // by default we take it as text field
       return 'FieldText';
@@ -477,6 +486,12 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get column types via hook
+   * 
+   * Caution: Make sure tu use getTableAlias() on all your queries! See notes
+   * of the method for explanation.
+   * 
+   * @param HookEvent $event;
+   * @return void;
    */
   public function addColumnTypes($event) {
     $type = $event->arguments('type');
@@ -536,6 +551,15 @@ class RockFinder2 extends WireData implements Module {
   
   /**
    * Get table alias name for this column
+   * 
+   * We prepend the original table name with an underscore so that we do not end
+   * up with a "non unique table alias" error. This can happen when the selector
+   * contains a field that is also listed in the RockFinder columns, eg:
+   * $rf->find('template=foo, field_bar=123');
+   * $rf->addColumns(['title', 'bar']);
+   * Field "bar" is joined (JOIN) by the initial PW query and also joined later
+   * via RockFinder2 (LEFT JOIN).
+   * 
    * @param string $column
    * @return string
    */
@@ -581,11 +605,21 @@ class RockFinder2 extends WireData implements Module {
 
     // additional information for debug requests
     if($this->debug) {
-      $this->dataObject->sql = $this->getSQL();
+      $this->dataObject->sql = $this->prettify($this->getSQL());
       $this->dataObject->timings = $timings;
     }
 
     return $this->dataObject;
+  }
+
+  /**
+   * Prettify SQL string
+   * @return string
+   */
+  private function prettify($sql) {
+    $str = str_replace("SELECT ", "SELECT\n  ", $sql);
+    $str = str_replace("`,", "`,\n  ", $str);
+    return $str;
   }
 
   /**
@@ -664,6 +698,7 @@ class RockFinder2 extends WireData implements Module {
     $html = $this->files->render(__DIR__ . '/includes/debug.php', [
       'dump' => "<div class='tracy-inner'>$dump</div>",
       'json' => $this->database->escapeStr(json_encode($data)),
+      'finder' => $data,
       'tag' => $this->getScriptTag(),
     ]);
     $event->return = $html;

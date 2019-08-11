@@ -58,8 +58,13 @@ class ProcessRockFinder2 extends Process {
    * übersicht über alle leistungen
    */
   public function ___executeSandbox() {
-    $this->headline('RF2 Sandbox');
-    $this->wire('processBrowserTitle', 'RF2 Sandbox');
+    $name = $this->input->get('name', 'string');
+
+    $headline = 'RF2 Sandbox';
+    if($name) $headline .= " - $name";
+    $this->headline($headline);
+    $this->wire('processBrowserTitle', $headline);
+    
     $form = modules('InputfieldForm');
     $form->action = './';
     $form->id = 'sandboxform';
@@ -89,7 +94,6 @@ class ProcessRockFinder2 extends Process {
 
     // get code
     $code = file_get_contents(__DIR__ . '/includes/demo.php');
-    $name = $this->input->get('name', 'string');
     if($name) {
       $file = $this->rf->getFiles($name);
       if(!$file) throw new WireException("Finder for $name not found");
@@ -109,8 +113,30 @@ class ProcessRockFinder2 extends Process {
       'name' => 'debug',
       'label' => 'Debug Info',
       'icon' => 'bug',
+      'collapsed' => Inputfield::collapsedYes,
       'value' => '<div id="debuginfo" style="display: none;"></div>',
     ]);
+    
+    // add tabulator field
+    if($this->modules->isInstalled('RockTabulator')) {
+      $form->add([
+        'type' => 'RockTabulator',
+        'name' => 'rockfinder2_sandbox',
+        'label' => 'RockTabulator',
+        'icon' => 'table',
+        'notes' => 'An instance of this tabulator is available in the console as \'grid\'',
+        'initMsg' => '',
+      ]);
+    }
+    else {
+      $form->add([
+        'type' => 'markup',
+        'name' => 'tabulator',
+        'label' => 'RockTabulator',
+        'icon' => 'table',
+        'value' => 'Install RockTabulator to see data here',
+      ]);
+    }
 
     $out .= $form->render();
     return $out;
