@@ -17,11 +17,20 @@ if($input->requestMethod() == 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>RockFinder2 Debug Screen</title>
+  <script type='text/javascript' src='/wire/modules/Jquery/JqueryCore/JqueryCore.js'></script>
   <script type='text/javascript' src='/site/modules/RockFinder2/RockFinder2.js'></script>
   <?= $tag ?>
+  <style>
+    .tracy-inner {display: none;}
+  </style>
 </head>
 <body>
   <?= $dump ?>
   <?= $js ?>
+  <script>
+  setTimeout(function() {
+    $('.tracy-inner').fadeIn();
+  }, 500);
+  </script>
 </body>
 </html>
