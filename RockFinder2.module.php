@@ -70,6 +70,12 @@ class RockFinder2 extends WireData implements Module {
    */
   public $debug;
 
+  /**
+   * Array of options
+   * @var array
+   */
+  public $options = [];
+
   /* ########## init ########## */
 
   /**
@@ -100,12 +106,8 @@ class RockFinder2 extends WireData implements Module {
         if($this->config->ajax) return;
 
         $html = $event->return;
-        $code = $this->files->render(__DIR__.'/includes/script.php', [
-          'conf' => [
-            'url' => $this->url,
-          ],
-        ]);
-        $event->return = str_replace('</head>', $code.'</head>', $html);
+        $tag = $this->getScriptTag();
+        $event->return = str_replace('</head>', $tag.'</head>', $html);
       });
     }
 
@@ -120,6 +122,18 @@ class RockFinder2 extends WireData implements Module {
     $this->addHookAfter("RockFinder2::render(gzip)", $this, 'gzipRenderer');
   }
   
+  /**
+   * Return RockFinder2 JavaScript init tag
+   * @return string
+   */
+  public function getScriptTag() {
+    return $this->files->render(__DIR__.'/includes/script.php', [
+      'conf' => [
+        'url' => $this->url,
+      ],
+    ]);
+  }
+
   /**
    * API ready
    */
@@ -383,6 +397,28 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Add options from field
+   * @param array|string $fields
+   * @return void
+   */
+  public function addOptions($fields) {
+    if(is_array($fields)) {
+      foreach($fields as $field) $this->addOptions($field);
+      return;
+    }
+    
+    $fieldname = (string)$fields;
+    $field = $this->fields->get($fieldname);
+    if(!$field) throw new WireException("Field $fieldname not found");
+    
+    $data = [];
+    foreach($field->type->getOptions($field) as $opt) {
+      $data[$opt->id] = $opt->title;
+    }
+    $this->options[$fieldname] = $data;
+  }
+
+  /**
    * Add column to finder
    * @param mixed $column
    * @param mixed $type
@@ -528,16 +564,6 @@ class RockFinder2 extends WireData implements Module {
       $timings['relations'] = $now - $previous;
       $previous = $now;
 
-      $options = $this->getOptions();
-      $now = microtime(true);
-      $timings['options'] = $now - $previous;
-      $previous = $now;
-      
-      $context = $this->getContext();
-      $now = microtime(true);
-      $timings['context'] = $now - $previous;
-      $previous = $now;
-
       $timings['total'] = $now - $start;
 
       // convert to ms and round to 2 digits
@@ -549,14 +575,14 @@ class RockFinder2 extends WireData implements Module {
       'name' => $this->name,
       'data' => $data,
       'relations' => $relations,
-      'options' => $options,
-      'context' => $context,
+      'options' => $this->options,
+      'context' => $this->getContext(),
     ];
 
     // additional information for debug requests
     if($this->debug) {
       $this->dataObject->sql = $this->getSQL();
-      $this->dataObject->exec_ms = $timings;
+      $this->dataObject->timings = $timings;
     }
 
     return $this->dataObject;
@@ -586,14 +612,6 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getRelations() {
-    return [];
-  }
-
-  /**
-   * Get options
-   * @return array
-   */
-  public function getOptions() {
     return [];
   }
 
@@ -638,13 +656,17 @@ class RockFinder2 extends WireData implements Module {
     
     $finder = $event->object;
     $finder->debug = true;
-    $finder->getData();
+    $data = $finder->getData();
 
     ob_start();
     \TD::dumpBig($finder);
     $dump = ob_get_clean();
-
-    $event->return = "<div class='tracy-inner'>$dump</div>";
+    $html = $this->files->render(__DIR__ . '/includes/debug.php', [
+      'dump' => "<div class='tracy-inner'>$dump</div>",
+      'json' => $this->database->escapeStr(json_encode($data)),
+      'tag' => $this->getScriptTag(),
+    ]);
+    $event->return = $html;
   }
 
   /**
