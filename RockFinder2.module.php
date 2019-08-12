@@ -60,6 +60,12 @@ class RockFinder2 extends WireData implements Module {
   public $baseColumns;
 
   /**
+   * Main data
+   * @var array
+   */
+  private $mainData;
+
+  /**
    * Reference to RockFinder2 api variable
    */
   public $rf;
@@ -75,6 +81,12 @@ class RockFinder2 extends WireData implements Module {
    * @var array
    */
   public $options = [];
+  
+  /**
+   * Array of relations
+   * @var array
+   */
+  public $relations = [];
 
   /* ########## init ########## */
 
@@ -109,6 +121,11 @@ class RockFinder2 extends WireData implements Module {
         $tag = $this->getScriptTag();
         $event->return = str_replace('</head>', $tag.'</head>', $html);
       });
+
+      // create backup path
+      $path = $this->config->paths->assets . 'RockFinder2/bak/';
+      $this->files->mkdir($path, true);
+      $this->bak = $path;
     }
 
     // Add reference to RockFinder2 api var to this instance
@@ -268,9 +285,56 @@ class RockFinder2 extends WireData implements Module {
       $rf->debug = $debug;
       $rf->execute();
     } catch (\Throwable $th) {
-      echo $th->getMessage();
-      exit();
+      $this->die($th->getMessage());
     }
+  }
+
+  /**
+   * Return JSON error
+   * @param string $msg
+   * @return json
+   */
+  public function err($msg) {
+    return (object)[
+      'error' => $msg
+    ];
+  }
+
+  /**
+   * Return error json response
+   */
+  public function die($msg) {
+    header("Content-type: application/json");
+    die(json_encode($this->err($msg)));
+  }
+
+  /**
+   * Get all backup files for given finder
+   * @return array
+   */
+  public function getBackupFiles($name) {
+    $files = $this->files->find($this->bak, ['extensions'=>['php']]);
+    rsort($files);
+
+    $num = 0;
+    $max = $this->numBakFiles;
+    $arr = [];
+    foreach($files as $file) {
+      $info = (object)pathinfo($file);
+      if(strpos($info->basename, $name) !== 0) continue;
+
+      // delete old files if a maximum number is set
+      $num++;
+      if($max AND $num > $max) {
+        $this->files->unlink($file);
+        continue;
+      }
+
+      // add file to array
+      $arr[] = $file;
+    }
+
+    return $arr;
   }
 
   /**
@@ -424,6 +488,54 @@ class RockFinder2 extends WireData implements Module {
       $data[$opt->id] = $opt->title;
     }
     $this->options[$fieldname] = $data;
+  }
+
+  /**
+   * Add relation to this finder
+   * 
+   * A relation is an array of objects that is stored with the finder. This
+   * makes it possible to reference multiple related values from one row (1:n).
+   * 
+   * @param string name
+   * @param mixed $data
+   * @return array
+   */
+  public function addRelation($name, $data) {
+    // check if name already exists
+    if(array_key_exists($name, $this->relations)) {
+      throw new WireException("A relation with name $name already exists");
+    }
+
+    // init relation variable
+    $relation = $data;
+
+    // check data
+    if(is_array($data)) {
+      // data is provided as simple array
+      // we convert it to a RockFinder2 instance
+      $relation = $this->wire(new RockFinder2);
+      $relation->setData($data);
+    }
+    
+    // $relation must be instance of RockFinder2
+    if(!$relation instanceof RockFinder2) {
+      throw new WireException("Invalid data type for relation $name");
+    }
+
+    // save relation to array
+    $this->relations[$name] = $relation;
+  }
+
+  /**
+   * Get data of all relations
+   * @return array
+   */
+  public function loadRelationData() {
+    foreach($this->relations as $k=>$relation) {
+      if(!$relation instanceof RockFinder2) continue;
+      $this->relations[$k] = $relation->getData();
+    }
+    return $this->relations;
   }
 
   /**
@@ -583,8 +695,8 @@ class RockFinder2 extends WireData implements Module {
       $timings['data'] = $now - $previous;
       $previous = $now;
 
-      $relations = $this->getRelations();
       $now = microtime(true);
+      $this->loadRelationData();
       $timings['relations'] = $now - $previous;
       $previous = $now;
 
@@ -598,7 +710,7 @@ class RockFinder2 extends WireData implements Module {
     $this->dataObject = (object)[
       'name' => $this->name,
       'data' => $data,
-      'relations' => $relations,
+      'relations' => $this->relations,
       'options' => $this->options,
       'context' => $this->getContext(),
     ];
@@ -623,9 +735,23 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Set main data array
+   * @param array $data
+   * @return void
+   */
+  public function setData($data) {
+    if(!is_array($data)) throw new WireException("Data must be an array");
+    $this->mainData = $data;
+  }
+
+  /**
    * Get main data from PW selector
    */
   public function getMainData() {
+    // if data is already set return it
+    if($this->mainData) return $this->mainData;
+
+    // if no query is set return an empty array
     if(!$this->query) return [];
 
     $result = $this->query->execute();
@@ -639,14 +765,6 @@ class RockFinder2 extends WireData implements Module {
     // d(implode("|", $result->fetchAll(\PDO::FETCH_COLUMN)));
 
     // return $data;
-  }
-
-  /**
-   * Get relations
-   * @return array
-   */
-  public function getRelations() {
-    return [];
   }
 
   /**
@@ -693,7 +811,7 @@ class RockFinder2 extends WireData implements Module {
     $data = $finder->getData();
 
     ob_start();
-    \TD::dumpBig($finder);
+    \TD::dump($finder, null, ['maxDepth' => 15, 'maxLength' => 9999]);
     $dump = ob_get_clean();
     $html = $this->files->render(__DIR__ . '/includes/debug.php', [
       'dump' => "<div class='tracy-inner'>$dump</div>",

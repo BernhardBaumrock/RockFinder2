@@ -18,17 +18,20 @@ $(document).ready(function() {
   // setup spinner
   var $spinner = $('<i class="fa fa-spin fa-spinner" style="margin-left: 10px;"></i>');
 
-  // ajax function
-  var sendAJAX = function() {
-    $spinner.hide().appendTo($field.closest('.Inputfield').find('>.InputfieldHeader')).fadeIn();
-
-    // get value
+  // get code from textarea/ace
+  var getCode = function() {
     if(typeof ace != "undefined") {
       code = ace.edit('InputfieldAceExtended_code_editor').getSession().getValue();
     }
     else {
       code = $('#Inputfield_code').val();
     }
+    return code;
+  }
+
+  // ajax function
+  var sendAJAX = function() {
+    $spinner.hide().appendTo($field.closest('.Inputfield').find('>.InputfieldHeader')).fadeIn();
 
     // save code to localStorage
     if(!name) localStorage.setItem('RockFinder2_code', code);
@@ -37,10 +40,17 @@ $(document).ready(function() {
     $tabulator.find('.loading').fadeIn();
 
     // get data and log it to console
-    $.post(RockFinder2.conf.url + " #output", {
-      code: code,
+    $.post(RockFinder2.conf.url, {
+      code: getCode(),
       type: 'debug',
     }).done(function(data) {
+      // check for errors
+      if(data.error) {
+        alert(data.error);
+        $debug.find('.tracy-inner').fadeOut();
+        return;
+      }
+
       // update div
       $debug.fadeOut(function() {
         $debug.html(data.html);
@@ -70,6 +80,20 @@ $(document).ready(function() {
     });
   }
 
+  // save code to file
+  var saveFile = function() {
+    $.post("#", {
+      code: getCode(),
+      action: 'save',
+    }).done(function(data) {
+      UIkit.notification({
+        message: data,
+      });
+    }).fail(function(data) {
+      alert('Rquest failed: ' + data);
+    });
+  }
+
   // onload
   $(window).load(function() {
     // early exit on overview page
@@ -87,9 +111,28 @@ $(document).ready(function() {
     // fire ajax request on first load
     sendAJAX();
   });
-
-  // submit form on ctrl+enter
-  $('#wrap_Inputfield_code').keydown(function (e) {
-    if ((e.ctrlKey || e.altKey) && e.keyCode == 13) sendAJAX();
+  
+  // keyboard shortcuts
+  $('#wrap_Inputfield_code').keydown(function (event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      switch (event.keyCode) {
+        // ctrl/alt + enter
+        case 13:
+          event.preventDefault();
+          sendAJAX();
+          return false;
+      }
+    }
+  });
+  $(window).keydown(function (event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      switch (event.keyCode) {
+        // ctrl/alt + s
+        case 83:
+          event.preventDefault();
+          saveFile();
+          return false;
+      }
+    }
   });
 });

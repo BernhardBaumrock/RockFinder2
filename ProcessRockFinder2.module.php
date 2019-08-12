@@ -23,6 +23,11 @@ class ProcessRockFinder2 extends Process {
   }
 
   /**
+   * @var RockFinder2
+   */
+  public $rf;
+
+  /**
    * Init the module
    */
   public function init() {
@@ -58,6 +63,7 @@ class ProcessRockFinder2 extends Process {
    * übersicht über alle leistungen
    */
   public function ___executeSandbox() {
+    $this->handleSaveAction();
     $name = $this->input->get('name', 'string');
 
     $headline = 'RF2 Sandbox';
@@ -70,7 +76,12 @@ class ProcessRockFinder2 extends Process {
     $form->id = 'sandboxform';
     $out = '';
 
-    $out .= '<p><a href="'.$this->page->url.'">< Back to overview</a></p>';
+    $out .= '<p>';
+    $out .= '<a href="'.$this->page->url.'">< Back to overview page</a>';
+    if($name) {
+      $apiUrl = $this->rf->url . '?name=' . $name;
+      $out .= " | API Endpoint URL: <a href='$apiUrl'>$apiUrl</a></p>";
+    }
 
     // code field
     $f = $this->modules->get('InputfieldTextarea');
@@ -88,7 +99,8 @@ class ProcessRockFinder2 extends Process {
       $f = $ace;
     }
     
-    $f->notes = "Execute on CTRL+ENTER or ALT+ENTER";
+    $f->notes = "Execute on CTRL+ENTER or ALT+ENTER, save on CTRL+S\n"
+      ."Backups are stored in " . $this->rf->bak;
     $f->description = "The code must return a RockFinder2 instance!";
     if(!$ace) $f->notes .= "\nYou can install 'InputfieldAceExtended' for better code editing";
 
@@ -140,6 +152,40 @@ class ProcessRockFinder2 extends Process {
 
     $out .= $form->render();
     return $out;
+  }
+
+  /**
+   * Handle sandbox save actions
+   */
+  public function handleSaveAction() {
+    if(!$this->input->post('action', 'string') == 'save') return;
+    $name = $this->input->get('name', 'string');
+    if(!$name) $name = '_sandbox_';
+
+    try {
+      // check access
+      if(!$this->user->isSuperuser()) throw new WireException("No access!");
+
+      // get file
+      $file = $this->rf->getFiles($name);
+      $code = $this->input->post('code', 'string');
+      if(!is_writable($file)) throw new WireException("File not writable!");
+
+      // write old code to tmp history
+      $path = $this->rf->bak;
+      $old = file_get_contents($file);
+      file_put_contents($path.$name.'-'.date('Ymd-His').".php", $old);
+
+      // do cleanup
+      $this->rf->getBackupFiles($name);
+
+      // write code to file
+      file_put_contents($file, $code);
+
+      die("Changes saved!");
+    } catch (\Throwable $th) {
+      die($th->getMessage());
+    }
   }
 }
 

@@ -13,7 +13,9 @@ function _RockFinder2(json) {
  * Return options for given field
  */
 _RockFinder2.prototype.getOptions = function(name) {
-  return this.data.options[name];
+  var name = name || null;
+  if(!name) return this.data.options;
+  return this.data.options[name] || [];
 }
 
 /**
