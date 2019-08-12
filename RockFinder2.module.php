@@ -43,12 +43,6 @@ class RockFinder2 extends WireData implements Module {
   public $selector;
 
   /**
-   * The query to get all ids of selected pages
-   * @var DatabaseQuerySelect
-   */
-  private $idQuery;
-
-  /**
    * The query that selects all columns (final data) for this finder
    * @var DatabaseQuerySelect
    */
@@ -86,7 +80,13 @@ class RockFinder2 extends WireData implements Module {
    * Array of relations
    * @var array
    */
-  public $relations = [];
+  private $relations = [];
+
+  /**
+   * Save relation info to array
+   * @var array
+   */
+  private $relationInfo = [];
 
   /* ########## init ########## */
 
@@ -427,9 +427,6 @@ class RockFinder2 extends WireData implements Module {
 
     // save this query object for later
     $this->query = $query;
-
-    // idQuery is the minimal query that is used for joins and relations
-    $this->idQuery = clone $query;
   }
 
   /**
@@ -498,9 +495,10 @@ class RockFinder2 extends WireData implements Module {
    * 
    * @param string name
    * @param mixed $data
-   * @return array
+   * @param string $column
+   * @return RockFinder2
    */
-  public function addRelation($name, $data) {
+  public function addRelation($name, $data, $column) {
     // check if name already exists
     if(array_key_exists($name, $this->relations)) {
       throw new WireException("A relation with name $name already exists");
@@ -516,26 +514,57 @@ class RockFinder2 extends WireData implements Module {
       $relation = $this->wire(new RockFinder2);
       $relation->setData($data);
     }
-    
-    // $relation must be instance of RockFinder2
+
+    // modify RockFinder2 instance
     if(!$relation instanceof RockFinder2) {
+      // $relation must be instance of RockFinder2
       throw new WireException("Invalid data type for relation $name");
     }
+
+    // save relation info
+    $this->relationInfo[$name] = $column;
 
     // save relation to array
     $this->relations[$name] = $relation;
   }
 
   /**
-   * Get data of all relations
+   * Load data of all relations
+   * @param array $maindata
+   * @return void
+   */
+  public function loadRelationsData($maindata) {
+    foreach($this->relations as $name=>$relation) {
+      /** @var RockFinder2 $relation */
+      $relation->debug = $this->debug;
+
+      // get relation info
+      $ids = $this->getColData($maindata, $this->relationInfo[$name]);
+
+      // add ids to query
+      $ids = implode(",", $ids);
+      $relation->query->where("pages.id IN ($ids)");
+
+      // load data
+      $relation->getData();
+    }
+  }
+
+  /**
+   * Get column data of array
+   * @param array $data
+   * @param array $column
    * @return array
    */
-  public function loadRelationData() {
-    foreach($this->relations as $k=>$relation) {
-      if(!$relation instanceof RockFinder2) continue;
-      $this->relations[$k] = $relation->getData();
+  public function getColData($data, $column) {
+    if(!is_array($data)) throw new WireException("Data must be an array");
+    
+    $arr = [];
+    foreach($data as $item) {
+      $item = (array)$item;
+      $arr[] = $item[$column];
     }
-    return $this->relations;
+    return array_unique($arr);
   }
 
   /**
@@ -696,7 +725,7 @@ class RockFinder2 extends WireData implements Module {
       $previous = $now;
 
       $now = microtime(true);
-      $this->loadRelationData();
+      $this->loadRelationsData($data);
       $timings['relations'] = $now - $previous;
       $previous = $now;
 
@@ -719,6 +748,7 @@ class RockFinder2 extends WireData implements Module {
     if($this->debug) {
       $this->dataObject->sql = $this->prettify($this->getSQL());
       $this->dataObject->timings = $timings;
+      $this->dataObject->relationInfo = $this->relationInfo;
     }
 
     return $this->dataObject;
@@ -758,13 +788,6 @@ class RockFinder2 extends WireData implements Module {
     // d($this->query);
     // db($result->queryString, 'all');
     return $result->fetchAll(\PDO::FETCH_OBJ);
-    
-    // $result = $this->idQuery->execute();
-    // d($this->idQuery);
-    // db($result->queryString, 'ids');
-    // d(implode("|", $result->fetchAll(\PDO::FETCH_COLUMN)));
-
-    // return $data;
   }
 
   /**
