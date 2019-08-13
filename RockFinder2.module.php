@@ -49,6 +49,12 @@ class RockFinder2 extends WireData implements Module {
   public $query;
 
   /**
+   * Columns that are added to this finder
+   * @var array
+   */
+  public $columns = [];
+
+  /**
    * Array of column names in 'pages' DB table
    */
   public $baseColumns;
@@ -289,6 +295,13 @@ class RockFinder2 extends WireData implements Module {
       /** @var RockFinder2 $rf */
       $rf = $this->files->render($file);
       if(!$rf instanceof RockFinder2) {
+        // if superuser: try to eval to get proper error message
+        if($this->user->isSuperuser()) {
+          $php = file_get_contents($file);
+          if(strpos($php, '<?php') === 0) $php = substr($php, 5);
+          eval($php);
+        }
+
         throw new WireException("Your code must return a RockFinder2 instance!");
       }
       $rf->debug = $debug;
@@ -476,6 +489,20 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Add columns of given template
+   * @param string|Template $template
+   * @param array $hide
+   * @return void
+   */
+  public function addTemplateColumns($template, $hide = []) {
+    $tpl = $this->templates->get((string)$template);
+    foreach($tpl->fields as $field) {
+      if(in_array($field, $hide)) continue;
+      $this->addColumn($field);
+    }
+  }
+
+  /**
    * Add options from field
    * @param array|string $fields
    * @return void
@@ -603,6 +630,11 @@ class RockFinder2 extends WireData implements Module {
     if(!$alias) $alias = $column;
     $query = $this->query;
 
+    // add this column to columns array
+    $colname = (string)$column;
+    if(in_array($colname, $this->columns)) throw new WireException("Column $column already exists in this finder");
+    $this->columns[] = $colname;
+
     // get column type definition
     $col = $this->getCol($type);
     if(!$col OR !is_callable($col)) {
@@ -616,6 +648,30 @@ class RockFinder2 extends WireData implements Module {
       'alias' => $alias,
       'type' => $type,
     ]);
+  }
+
+  /**
+   * Add a RockFinder to join
+   * @param string|RockFinder $finder
+   * @param string $column column to join on
+   * @param array $columns columns to join
+   * @return void;
+   */
+  public function addJoin($finder, $column, $columns = null) {
+    // check finder
+    if(is_string($finder)) $finder = $this->getByName($finder);
+    if(!$finder instanceof RockFinder2) throw new WireException("First parameter must be a RockFinder2");
+
+    // setup columns
+    if(!$columns) $columns = $finder->columns;
+
+    // join data
+    $sql = str_replace("\n", "\n  ", $finder->getSQL());
+    $this->query->leftjoin("($sql) AS `join_$column` ON `join_$column`.id = _field_owner.data");
+    foreach($columns as $c) {
+      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`$c`) as `$column:$c`");
+      $this->columns[] = "$column:$c";
+    }
   }
 
   /**
@@ -770,6 +826,7 @@ class RockFinder2 extends WireData implements Module {
 
     // additional information for debug requests
     if($this->debug) {
+      $this->dataObject->columns = $this->columns;
       $this->dataObject->sql = $this->prettify($this->getSQL());
       $this->dataObject->timings = $timings;
       $this->dataObject->relationInfo = $this->relationInfo;

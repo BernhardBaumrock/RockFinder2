@@ -2,6 +2,13 @@
 
 ProcessWire module, successor of RockFinder
 
+* better error reporting
+* new concept of joins
+* using built in query abstraction
+* new concept of relations
+* javascript helper
+* tracy for dumping
+
 ---
 
 ```
