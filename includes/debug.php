@@ -4,11 +4,7 @@ $js = "<script>var finder = new _RockFinder2('$json');</script>";
 if($input->requestMethod() == 'POST') {
   header('Content-Type: application/json');
   echo json_encode([
-    'html' => $dump.$js
-      ."<div class='tracy-inner'>"
-      ."<small>A JavaScript instance of RockFinder2 with data of this finder"
-      ." is available in the console as 'finder' .</small>"
-      ."</div>",
+    'html' => $dump.$js,
     'finder' => $finder,
   ]);
   die();

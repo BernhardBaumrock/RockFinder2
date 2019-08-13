@@ -47,9 +47,15 @@ class ProcessRockFinder2 extends Process {
     $out .= '<thead><tr><th>Name</th><th>Description</th></tr></thead>';
     $out .= '<tbody>';
     $path = $this->config->paths->assets . "RockFinder2";
-    foreach($this->files->find($path, ['extensions' => ['php']]) as $file) {
+    $files = $this->files->find($path, [
+      'extensions' => ['php'],
+      'excludeDirNames' => ['bak'],
+    ]);
+    foreach($files as $file) {
       $info = (object)pathinfo($file);
-      $desc = str_replace('// ', '', file($file)[1]);
+      $desc = '';
+      $line2 = file($file)[1];
+      if(strpos($line2, '// ') === 0) $desc = str_replace('// ', '', $line2);
       $out .= "<tr><td><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td></tr>";
     }
     $out .= '</tbody>';
@@ -79,7 +85,7 @@ class ProcessRockFinder2 extends Process {
     $out .= '<p>';
     $out .= '<a href="'.$this->page->url.'">< Back to overview page</a>';
     if($name) {
-      $apiUrl = $this->rf->url . '?name=' . $name;
+      $apiUrl = $this->rf->url . '?name=' . $name . '&type=debug';
       $out .= " | API Endpoint URL: <a href='$apiUrl'>$apiUrl</a></p>";
     }
 
@@ -127,6 +133,7 @@ class ProcessRockFinder2 extends Process {
       'icon' => 'bug',
       'collapsed' => Inputfield::collapsedYes,
       'value' => '<div id="debuginfo" style="display: none;"></div>',
+      'notes' => "An instance of this finder is available in the console as 'finder'",
     ]);
     
     // add tabulator field
@@ -136,7 +143,7 @@ class ProcessRockFinder2 extends Process {
         'name' => 'rockfinder2_sandbox',
         'label' => 'RockTabulator',
         'icon' => 'table',
-        'notes' => 'An instance of this tabulator is available in the console as \'grid\'',
+        'notes' => "An instance of this tabulator is available in the console as 'grid'",
         'initMsg' => '',
       ]);
     }

@@ -238,7 +238,16 @@ class RockFinder2 extends WireData implements Module {
     if(!$type) $type = $this->input->post('type', 'string');
     if(!$type) $type = 'gzip';
 
+    // check access
     $this->checkAccess($type);
+
+    // log request
+    if($this->debug) {
+      fl('See PW logs for more RockFinder2 debug info!');
+      $this->log("Finder {$this->name} SQL: " . $this->getSQL());
+    }
+
+    // render output
     echo $this->render($type);
     die();
   }
@@ -295,8 +304,9 @@ class RockFinder2 extends WireData implements Module {
    * @return json
    */
   public function err($msg) {
+    $this->log($msg);
     return (object)[
-      'error' => $msg
+      'error' => $msg,
     ];
   }
 
@@ -535,18 +545,29 @@ class RockFinder2 extends WireData implements Module {
    */
   public function loadRelationsData($maindata) {
     foreach($this->relations as $name=>$relation) {
+      // quickfix to prevent multiple loading of relations
+      // todo: why is this method executed twice?
+      if($relation->loaded) return;
+
       /** @var RockFinder2 $relation */
       $relation->debug = $this->debug;
 
       // get relation info
       $ids = $this->getColData($maindata, $this->relationInfo[$name]);
+      sort($ids); // performance pro or con?
 
       // add ids to query
       $ids = implode(",", $ids);
       $relation->query->where("pages.id IN ($ids)");
 
+      // log this request
+      if($relation->debug) {
+        $this->log("Relation {$relation->name} SQL: " . $relation->getSQL());
+      }
+
       // load data
       $relation->getData();
+      $relation->loaded = true;
     }
   }
 
@@ -562,9 +583,12 @@ class RockFinder2 extends WireData implements Module {
     $arr = [];
     foreach($data as $item) {
       $item = (array)$item;
-      $arr[] = $item[$column];
+      $items = explode(",", $item[$column]);
+      foreach($items as $i) $arr[] = $i;
     }
-    return array_unique($arr);
+    $arr = array_unique($arr);
+    $arr = array_filter($arr);
+    return $arr;
   }
 
   /**
@@ -811,6 +835,7 @@ class RockFinder2 extends WireData implements Module {
    * @return string
    */
   public function getSQL() {
+    if(!$this->query) return;
     return $this->query->getQuery();
   }
 
