@@ -107,8 +107,8 @@ class ProcessRockFinder2 extends Process {
     
     $f->notes = "Execute on CTRL+ENTER or ALT+ENTER, save on CTRL+S\n"
       ."Backups are stored in " . $this->rf->bak;
-    $f->description = "The code must return a RockFinder2 instance!";
     if(!$ace) $f->notes .= "\nYou can install 'InputfieldAceExtended' for better code editing";
+    $f->description = "The code must return a RockFinder2 instance!";
 
     // get code
     $code = file_get_contents(__DIR__ . '/includes/demo.php');
@@ -116,6 +116,11 @@ class ProcessRockFinder2 extends Process {
       $file = $this->rf->getFiles($name);
       if(!$file) throw new WireException("Finder for $name not found");
       $code = file_get_contents($file);
+      
+      // add link to file
+      $f->entityEncodeText = false;
+      $link = $this->getIdeLink($file);
+      $f->description .= " <a href='$link'>Open file in IDE</a>";
     }
     
     $f->name = 'code';
@@ -167,11 +172,11 @@ class ProcessRockFinder2 extends Process {
   public function handleSaveAction() {
     if(!$this->input->post('action', 'string') == 'save') return;
     $name = $this->input->get('name', 'string');
-    if(!$name) $name = '_sandbox_';
 
     try {
       // check access
       if(!$this->user->isSuperuser()) throw new WireException("No access!");
+      if(!$name) throw new WireException("Saving disabled in sandbox");
 
       // get file
       $file = $this->rf->getFiles($name);
@@ -193,6 +198,22 @@ class ProcessRockFinder2 extends Process {
     } catch (\Throwable $th) {
       die($th->getMessage());
     }
+  }
+
+  /**
+   * Get ide link from file and line
+   * @param string $file
+   * @param int $line
+   * @return string
+   */
+  public function getIdeLink($file, $line = 0) {
+    if($this->modules->isInstalled('TracyDebugger')) {
+      $tracy = $this->modules->get('TracyDebugger');
+      $link = str_replace('%file', $file, $tracy->editor);
+      $link = str_replace('%line', $line, $link);
+      return $link;
+    }
+    return false;
   }
 }
 
