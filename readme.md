@@ -8,6 +8,8 @@ ProcessWire module, successor of RockFinder
 * new concept of relations
 * javascript helper
 * tracy for dumping
+* custom columns via hook
+* custom renderers via hook
 
 ---
 
