@@ -493,8 +493,9 @@ class RockFinder2 extends WireData implements Module {
   public function addTemplateColumns($template, $hide = []) {
     $tpl = $this->templates->get((string)$template);
     foreach($tpl->fields as $field) {
-      if(in_array($field, $hide)) continue;
-      $this->addColumn($field);
+      $fieldname = (string)$field;
+      if(in_array($fieldname, $hide)) continue;
+      $this->addColumn($fieldname);
     }
   }
 
