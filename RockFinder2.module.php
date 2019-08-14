@@ -589,8 +589,15 @@ class RockFinder2 extends WireData implements Module {
 
         // get ids from main dataset
         $ids = $this->getColData($maindata, 'id');
-        $ids = implode(",", $ids);
-        $relation->query->where("_field_$field.data IN ($ids)");
+        if(!count($ids)) {
+          // if no matching ids where found we return an empty resultset
+          // for this relation
+          $relation->query->where("_field_$field.data IS NULL");
+        }
+        else {
+          $ids = implode(",", $ids);
+          $relation->query->where("_field_$field.data IN ($ids)");
+        }
       }
       elseif($rows) {
         // if ids restriction is a column of the main finder get ids from its data
