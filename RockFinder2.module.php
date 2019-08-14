@@ -87,12 +87,7 @@ class RockFinder2 extends WireData implements Module {
    * @var array
    */
   private $relations = [];
-
-  /**
-   * Save relation info to array
-   * @var array
-   */
-  private $relationInfo = [];
+  private $_relations = [];
 
   /**
    * Class constructor
@@ -538,7 +533,7 @@ class RockFinder2 extends WireData implements Module {
    */
   public function addRelation($name, $data, $rows = null) {
     // check if name already exists
-    if(array_key_exists($name, $this->relations)) {
+    if(array_key_exists($name, $this->_relations)) {
       throw new WireException("A relation with name $name already exists");
     }
 
@@ -560,19 +555,20 @@ class RockFinder2 extends WireData implements Module {
     }
 
     // save relation info
-    $this->relationInfo[$name] = $rows;
+    $relation->rows = $rows;
 
     // save relation to array
-    $this->relations[$name] = $relation;
+    $this->_relations[$name] = $relation;
   }
 
   /**
    * Load data of all relations
    * @param array $maindata
+   * @param bool $debug
    * @return void
    */
-  public function loadRelationsData($maindata) {
-    foreach($this->relations as $name=>$relation) {
+  public function loadRelationsData($maindata, $debug) {
+    foreach($this->_relations as $name=>$relation) {
       // quickfix to prevent multiple loading of relations
       // todo: why is this method executed twice?
       if($relation->loaded) return;
@@ -581,7 +577,7 @@ class RockFinder2 extends WireData implements Module {
       $relation->debug = $this->debug;
 
       // get relation info
-      $rows = $this->relationInfo[$name];
+      $rows = $relation->rows;
 
       // get id restrictions
       if(strpos($rows, 'self:') === 0) {
@@ -612,8 +608,10 @@ class RockFinder2 extends WireData implements Module {
       }
 
       // load data
-      $relation->getData();
+      $data = $relation->getData($debug);
       $relation->loaded = true;
+
+      $this->relations[$name] = $data;
     }
   }
 
@@ -822,18 +820,20 @@ class RockFinder2 extends WireData implements Module {
    * Return data object
    * @return object
    */
-  public function getData() {
+  public function getData($debug = null) {
+    if($debug === null) $debug = $this->debug;
+    
     // timings
       // $timings = [];
       // $start = $previous = microtime(true);
 
-      $data = $this->getMainData();
+      $mainData = $this->getMainData();
       // $now = microtime(true);
       // $timings['data'] = $now - $previous;
       // $previous = $now;
 
       // $now = microtime(true);
-      $this->loadRelationsData($data);
+      $this->loadRelationsData($mainData, $debug);
       // $timings['relations'] = $now - $previous;
       // $previous = $now;
 
@@ -844,23 +844,20 @@ class RockFinder2 extends WireData implements Module {
 
     // return data
     if($this->dataObject) return $this->dataObject;
-    $this->dataObject = (object)[
-      'name' => $this->name,
-      'data' => $data,
-      'relations' => $this->relations,
-      'options' => $this->options,
-      'context' => $this->getContext(),
-    ];
+    
+    $data = (object)[];
+    $data->name = $this->name;
+    if($debug) $data->columns = $this->columns;
+    $data->data = $mainData;
+    $data->options = $this->options;
+    $data->context = $this->getContext();
+    $data->relations = $this->relations;
+    if($debug) $data->_relations = $this->_relations;
+    if($debug) $data->sql = $this->prettify($this->getSQL());
+    if($debug) $data->timings = 'todo'; //$timings;
 
-    // additional information for debug requests
-    if($this->debug) {
-      $this->dataObject->columns = $this->columns;
-      $this->dataObject->sql = $this->prettify($this->getSQL());
-      $this->dataObject->timings = 'todo'; //$timings;
-      $this->dataObject->relationInfo = $this->relationInfo;
-    }
-
-    return $this->dataObject;
+    $this->dataObject = $data;
+    return $data;
   }
 
   /**
@@ -980,7 +977,7 @@ class RockFinder2 extends WireData implements Module {
   public function __debugInfo() {
     $info = $this->settings ?: [];
     $info['name'] = $this->name;
-    $info['selector'] = $this->selector;
+    $info['find'] = $this->selector;
     $info['getData()'] = $this->getData();
     return $info; 
   }
