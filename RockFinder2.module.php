@@ -50,9 +50,9 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Columns that are added to this finder
-   * @var array
+   * @var WireArray
    */
-  public $columns = [];
+  public $columns;
 
   /**
    * Array of column names in 'pages' DB table
@@ -94,7 +94,20 @@ class RockFinder2 extends WireData implements Module {
    */
   private $relationInfo = [];
 
-  /* ########## init ########## */
+  /**
+   * Class constructor
+   */
+  public function __construct() {
+    $this->name = uniqid();
+    
+    // init columns array
+    $this->columns = $this->wire(new WireArray);
+
+    // default hasAccess callback
+    $this->hasAccess = function() {
+      return $this->user->isSuperuser();
+    };
+  }
 
   /**
    * Initialize the module (optional)
@@ -152,7 +165,16 @@ class RockFinder2 extends WireData implements Module {
       $event->return = $dirs;
     });
   }
-  
+
+  /**
+   * API ready
+   */
+  public function ready() {
+    $this->checkUrl();
+  }
+
+  /* ########## general ########## */
+
   /**
    * Return RockFinder2 JavaScript init tag
    * @return string
@@ -164,27 +186,6 @@ class RockFinder2 extends WireData implements Module {
       ],
     ]);
   }
-
-  /**
-   * API ready
-   */
-  public function ready() {
-    $this->checkUrl();
-  }
-
-  /**
-   * Class constructor
-   */
-  public function __construct() {
-    $this->name = uniqid();
-
-    // default hasAccess callback
-    $this->hasAccess = function() {
-      return $this->user->isSuperuser();
-    };
-  }
-
-  /* ########## general ########## */
 
   /**
    * Handle API Endpoint requests
@@ -632,8 +633,13 @@ class RockFinder2 extends WireData implements Module {
 
     // add this column to columns array
     $colname = (string)$column;
-    if(in_array($colname, $this->columns)) throw new WireException("Column $column already exists in this finder");
-    $this->columns[] = $colname;
+    if($this->columns->has($colname)) {
+      throw new WireException("Column $column already exists in this finder");
+    }
+    $this->columns->add((object)[
+      'name' => $colname,
+      'alias' => $alias,
+    ]);
 
     // get column type definition
     $col = $this->getCol($type);
@@ -665,12 +671,16 @@ class RockFinder2 extends WireData implements Module {
     // setup columns
     if(!$columns) $columns = $finder->columns;
 
+    // get column from array
+    $col = $this->columns->get($column);
+    if(!$col) throw new WireException("Column $column not found");
+
     // join data
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
-    $this->query->leftjoin("($sql) AS `join_$column` ON `join_$column`.id = _field_owner.data");
+    $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
     foreach($columns as $c) {
-      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`$c`) as `$column:$c`");
-      $this->columns[] = "$column:$c";
+      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->name}`) as `{$col->alias}:{$c->alias}`");
+      $this->columns->add($c);
     }
   }
 
