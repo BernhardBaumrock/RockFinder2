@@ -533,10 +533,10 @@ class RockFinder2 extends WireData implements Module {
    * 
    * @param string name
    * @param mixed $data
-   * @param string $column
+   * @param string $rows
    * @return RockFinder2
    */
-  public function addRelation($name, $data, $column) {
+  public function addRelation($name, $data, $rows = null) {
     // check if name already exists
     if(array_key_exists($name, $this->relations)) {
       throw new WireException("A relation with name $name already exists");
@@ -560,7 +560,7 @@ class RockFinder2 extends WireData implements Module {
     }
 
     // save relation info
-    $this->relationInfo[$name] = $column;
+    $this->relationInfo[$name] = $rows;
 
     // save relation to array
     $this->relations[$name] = $relation;
@@ -581,12 +581,30 @@ class RockFinder2 extends WireData implements Module {
       $relation->debug = $this->debug;
 
       // get relation info
-      $ids = $this->getColData($maindata, $this->relationInfo[$name]);
-      sort($ids); // performance pro or con?
+      $rows = $this->relationInfo[$name];
 
-      // add ids to query
-      $ids = implode(",", $ids);
-      $relation->query->where("pages.id IN ($ids)");
+      // get id restrictions
+      if(strpos($rows, 'self:') === 0) {
+        // the keyword SELF means that we limit the relation to a resultset
+        // where only rows are returned that have an ID of the main finder in
+        // the column that is specified as self:yourcolumnname
+        $field = str_replace('self:', '', $rows);
+
+        // get ids from main dataset
+        $ids = $this->getColData($maindata, 'id');
+        $ids = implode(",", $ids);
+        $relation->query->where("_field_$field.data IN ($ids)");
+      }
+      elseif($rows) {
+        // if ids restriction is a column of the main finder get ids from its data
+        $colname = $rows;
+        $ids = $this->getColData($maindata, $colname);
+        sort($ids); // performance pro or con?
+
+        // add ids to query
+        $ids = implode(",", $ids);
+        $relation->query->where("pages.id IN ($ids)");
+      }
 
       // log this request
       if($relation->debug) {
@@ -806,23 +824,23 @@ class RockFinder2 extends WireData implements Module {
    */
   public function getData() {
     // timings
-      $timings = [];
-      $start = $previous = microtime(true);
+      // $timings = [];
+      // $start = $previous = microtime(true);
 
       $data = $this->getMainData();
-      $now = microtime(true);
-      $timings['data'] = $now - $previous;
-      $previous = $now;
+      // $now = microtime(true);
+      // $timings['data'] = $now - $previous;
+      // $previous = $now;
 
-      $now = microtime(true);
+      // $now = microtime(true);
       $this->loadRelationsData($data);
-      $timings['relations'] = $now - $previous;
-      $previous = $now;
+      // $timings['relations'] = $now - $previous;
+      // $previous = $now;
 
-      $timings['total'] = $now - $start;
+      // $timings['total'] = $now - $start;
 
       // convert to ms and round to 2 digits
-      foreach($timings as $k=>$v) $timings[$k] = round($v*1000, 2);
+      // foreach($timings as $k=>$v) $timings[$k] = round($v*1000, 2);
 
     // return data
     if($this->dataObject) return $this->dataObject;
@@ -838,7 +856,7 @@ class RockFinder2 extends WireData implements Module {
     if($this->debug) {
       $this->dataObject->columns = $this->columns;
       $this->dataObject->sql = $this->prettify($this->getSQL());
-      $this->dataObject->timings = $timings;
+      $this->dataObject->timings = 'todo'; //$timings;
       $this->dataObject->relationInfo = $this->relationInfo;
     }
 
