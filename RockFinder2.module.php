@@ -458,6 +458,9 @@ class RockFinder2 extends WireData implements Module {
 
     // add columns one by one
     foreach($columns as $k=>$v) {
+      // skip null value columns
+      if($v === null) continue;
+
       // if key is integer we take the value instead
       if(is_int($k)) {
         $k = $v;
@@ -703,7 +706,7 @@ class RockFinder2 extends WireData implements Module {
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
     $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
     foreach($columns as $c) {
-      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->name}`) as `{$col->alias}:{$c->alias}`");
+      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) as `{$col->alias}:{$c->alias}`");
       $this->columns->add($c);
     }
   }
@@ -924,9 +927,10 @@ class RockFinder2 extends WireData implements Module {
    * Return current sql query string
    * @return string
    */
-  public function getSQL() {
+  public function getSQL($pretty = false) {
     if(!$this->query) return;
-    return $this->query->getQuery();
+    $sql = $this->query->getQuery();
+    return $pretty ? $this->prettify($sql) : $sql;
   }
 
   /* ########## renderers ########## */
