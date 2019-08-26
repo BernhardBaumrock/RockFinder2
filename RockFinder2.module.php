@@ -893,8 +893,14 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get main data from PW selector
+   * 
+   * If a column index is provided it will return a plain array of values stored
+   * in that column.
+   * 
+   * @param int $columnindex
+   * @return array
    */
-  public function getMainData() {
+  public function getMainData($columnindex = null) {
     // if data is already set return it
     if($this->mainData) return $this->mainData;
 
@@ -902,9 +908,8 @@ class RockFinder2 extends WireData implements Module {
     if(!$this->query) return [];
 
     $result = $this->query->execute();
-    // d($this->query);
-    // db($result->queryString, 'all');
-    return $result->fetchAll(\PDO::FETCH_OBJ);
+    if($columnindex === null) return $result->fetchAll(\PDO::FETCH_OBJ);
+    else return $result->fetchAll(\PDO::FETCH_COLUMN, $columnindex);
   }
 
   /**
