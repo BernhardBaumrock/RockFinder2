@@ -135,4 +135,19 @@ $(document).ready(function() {
       }
     }
   });
+
+  // confirm deletion of finders
+  $(document).on('click', '.delFinder', function(event) {
+    var $link = $(event.target).closest('a');
+    var name = $link.data('name');
+    ProcessWire.confirm('Are you sure you want to delete Finder ' + name + ' ?', function() {
+      // yes, do not abort
+      window.location.href = $link.attr('href');
+    },
+    function() {
+      // on abort
+      return false;
+    });
+    return false;
+  });
 });

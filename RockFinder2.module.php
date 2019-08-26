@@ -386,6 +386,19 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Same as getByName but does not throw exceptions if files do not exist
+   * @return mixed
+   */
+  public function findByName($name) {
+    try {
+      $finder = $this->getByName($name);
+      return $finder;
+    } catch (\Throwable $th) {
+      return false;
+    }
+  }
+
+  /**
    * Get all finder files
    * 
    * If name is specified return only this single file (case sensitive).
@@ -402,7 +415,21 @@ class RockFinder2 extends WireData implements Module {
       }
       throw new WireException("File for $name not found");
     }
-    return $files;
+    return $files ?: [];
+  }
+
+  /**
+   * Get php file that corresponds to finder
+   * @return string
+   */
+  public function getFile($finder) {
+    $file = false;
+    try {
+      $file = $this->getFiles($finder);
+    } catch (\Throwable $th) {
+      // don't throw errors
+    }
+    return $file;
   }
 
   /**

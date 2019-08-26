@@ -36,33 +36,126 @@ class ProcessRockFinder2 extends Process {
   }
 
   /**
-   * Main screen
+   * RockFinder2 Setup Page
    */
   public function execute() {
-    $out = '';
+    $this->headline('Rockfinder2 Setup Page');
+    $this->browserTitle('Rockfinder2 Setup Page');
+    /** @var InputfieldForm $form */
+    $form = $this->modules->get('InputfieldForm');
 
-    // list all available finders
-    $out .= "<h2>Available Finders</h2>";
-    $out .= '<table class="uk-table uk-table-divider uk-table-striped">';
-    $out .= '<thead><tr><th>Name</th><th>Description</th></tr></thead>';
-    $out .= '<tbody>';
-    $path = $this->config->paths->assets . "RockFinder2";
-    $files = $this->files->find($path, [
-      'extensions' => ['php'],
-      'excludeDirNames' => ['bak'],
-    ]);
-    foreach($files as $file) {
-      $info = (object)pathinfo($file);
-      $desc = '';
-      $line2 = file($file)[1];
-      if(strpos($line2, '// ') === 0) $desc = str_replace('// ', '', $line2);
-      $out .= "<tr><td><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td></tr>";
-    }
-    $out .= '</tbody>';
-    $out .= '</table>';
-    $out .= "<p><a href='./sandbox'>Open Sandbox</a></p>";
+    // load vex
+    $this->wire('modules')->get('JqueryUI')->use('vex');
 
-    return $out;
+    // actions
+    if($this->input->post('newFinder', 'string')) $this->createNewFinder();
+    if($this->input->get('del', 'string')) $this->deleteFinder();
+    
+    // available finders
+      $out = '';
+      $out .= '<table class="uk-table uk-table-divider uk-table-striped">';
+      $out .= '<thead><tr><th>Name</th><th class="uk-width-expand">Description</th><th class="uk-width-auto">Delete</th></tr></thead>';
+      $out .= '<tbody>';
+      $path = $this->getPath();
+      $files = $this->files->find($path, [
+        'extensions' => ['php'],
+        'excludeDirNames' => ['bak'],
+      ]);
+      foreach($files as $file) {
+        $info = (object)pathinfo($file);
+        $desc = '';
+        $line2 = file($file)[1];
+        if(strpos($line2, '// ') === 0) $desc = str_replace('// ', '', $line2);
+        $del = "<td class='uk-text-center'><a href='./?del={$info->filename}' data-name='{$info->filename}' class='delFinder'><i class='fa fa-trash'></i></a></td>";
+        $out .= "<tr><td><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td>$del</tr>";
+      }
+      $out .= '</tbody>';
+      $out .= '</table>';
+
+      $b = $this->modules->get('InputfieldButton');
+      $b->href = './sandbox';
+      $b->value = 'Open new sandbox';
+      $b->icon = 'file-o';
+      $desc = $b->render();
+
+      $form->add([
+        'type' => 'markup',
+        'label' => 'Available Finders',
+        'description' => $desc,
+        'entityEncodeText' => false,
+        'value' => $out,
+      ]);
+
+    // actions
+      $out = '';
+      
+      $f = $this->modules->get('InputfieldText');
+      $f->name = 'newFinder';
+      $f->attr('placeholder', 'Finder name');
+      $f->attr('style', 'width: 250px;');
+
+      $d = $this->modules->get('InputfieldText');
+      $d->name = 'newFinderDesc';
+      $d->attr('placeholder', 'Finder description');
+      $d->attr('style', 'width: 350px;');
+
+      $b = $this->modules->get('InputfieldSubmit');
+      $b->name = 'submit_newFinder';
+      $b->icon = 'plus';
+      $b->value = 'Create new Finder';
+
+      $form->add([
+        'type' => 'markup',
+        'label' => 'Actions',
+        'value' => $f->render() . $d->render() . $b->render(),
+      ]);
+    
+    return $form->render();
+  }
+
+  /**
+   * Create new finder
+   */
+  public function createNewFinder($name = null) {
+    if(!$name) $name = $this->input->post('newFinder', 'string');
+    if(!$name) throw new WireException("No valid name set for finder");
+    
+    // check if finder already exists
+    if($this->rf->findByName($name)) return $this->error("Finder $name already exists");
+
+    // is directory writeable?
+    $path = $this->getPath();
+    if(!is_writable($path)) return $this->error("Directory $path is not writeable");
+
+    // copy demo finder to path
+    $content = file(__DIR__ . '/includes/demo.php');
+    $desc = $this->input->post('newFinderDesc', 'string');
+    if($desc) $content[1] = "// $desc\n";
+    file_put_contents($path . $name . '.php', $content);
+
+    // redirect to this finder
+    $this->session->redirect("./sandbox/?name=$name");
+  }
+
+  /**
+   * Delete a finder
+   */
+  public function deleteFinder($name = null) {
+    if(!$name) $name = $this->input->get('del', 'string');
+    if(!$name) throw new WireException("No valid name set");
+    
+    $file = $this->rf->getFile($name);
+    if($file) $this->files->unlink($file, $this->getPath());
+
+    $this->session->redirect('./');
+  }
+
+  /**
+   * Get path of assets files
+   * @return string
+   */
+  public function getPath() {
+    return $this->config->paths->assets . "RockFinder2/";
   }
 
   /**
