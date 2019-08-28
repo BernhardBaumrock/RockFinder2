@@ -67,7 +67,7 @@ class ProcessRockFinder2 extends Process {
         $line2 = file($file)[1];
         if(strpos($line2, '// ') === 0) $desc = str_replace('// ', '', $line2);
         $del = "<td class='uk-text-center'><a href='./?del={$info->filename}' data-name='{$info->filename}' class='delFinder'><i class='fa fa-trash'></i></a></td>";
-        $out .= "<tr><td><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td>$del</tr>";
+        $out .= "<tr><td class='uk-text-nowrap'><a href='./sandbox/?name={$info->filename}'>{$info->filename}</a></td><td>$desc</td>$del</tr>";
       }
       $out .= '</tbody>';
       $out .= '</table>';
