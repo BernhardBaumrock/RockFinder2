@@ -751,12 +751,13 @@ class RockFinder2 extends WireData implements Module {
    * @param array $columns columns to join
    * @return void;
    */
-  public function addJoin($finder, $column, $columns = null) {
+  public function addJoin($finder, $column, $columns = null, $aliases = []) {
     // check finder
     if(is_string($finder)) $finder = $this->getByName($finder);
     if(!$finder instanceof RockFinder2) throw new WireException("First parameter must be a RockFinder2");
 
     // setup columns
+    // if no columns are provided we add all columns from this finder
     if(!$columns) $columns = $finder->columns;
 
     // get column from array
@@ -771,7 +772,9 @@ class RockFinder2 extends WireData implements Module {
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
     $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
     foreach($columns as $c) {
-      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) AS `{$col->alias}:{$c->alias}`");
+      $alias = "{$col->alias}:{$c->alias}";
+      if(array_key_exists($c->name, $aliases)) $alias = $aliases[$c->name];
+      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) AS `$alias`");
       $this->columns->add($c);
     }
   }
