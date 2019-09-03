@@ -467,7 +467,8 @@ class RockFinder2 extends WireData implements Module {
 
     // modify the base query to our needs
     // we only need the page id
-    $query->set('select', ['`pages`.`id`']);
+    // setting the alias via AS is necessary for hideColumns() feature
+    $query->set('select', ['`pages`.`id` AS `id`']);
     // if possible ignore sort order for better performance
     if($options['nosort']) $query->set('orderby', []);
 
