@@ -729,6 +729,10 @@ class RockFinder2 extends WireData implements Module {
     $col = $this->columns->get($column);
     if(!$col) throw new WireException("Column $column not found");
 
+    if(!$this->fields->get($col->name)) {
+      throw new WireException("Field \"{$col->name}\" does not exist so the join can not be performed");
+    }
+
     // join data
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
     $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
