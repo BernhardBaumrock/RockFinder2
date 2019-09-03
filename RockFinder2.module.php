@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.1',
+      'version' => '0.0.2',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
@@ -515,6 +515,39 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Hide columns from final output
+   * 
+   * This does NOT remove the columns from the columns array of the finder.
+   * The columns must exist there so that joins can be performed.
+   * 
+   * @param array $columns
+   * @return void
+   */
+  public function hideColumns($columns) {
+    $selects = $this->query->select;
+    foreach($columns as $column) {
+      // find select statement for this column
+      foreach($selects as $i=>$select) {
+        $select = strtolower($select);
+        $test = " as `$column`";
+        if($this->endsWith($select, $test)) unset($selects[$i]);
+      }
+    }
+    $this->query->set('select', $selects);
+  }
+
+  /**
+   * Does the given string end with the test string?
+   * @return bool
+   */
+  public function endsWith($string, $test) {
+    $strlen = strlen($string);
+    $testlen = strlen($test);
+    if ($testlen > $strlen) return false;
+    return substr_compare($string, $test, $strlen - $testlen, $testlen) === 0;
+  }
+
+  /**
    * Add columns of given template
    * @param string|Template $template
    * @param array $hide
@@ -737,7 +770,7 @@ class RockFinder2 extends WireData implements Module {
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
     $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
     foreach($columns as $c) {
-      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) as `{$col->alias}:{$c->alias}`");
+      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) AS `{$col->alias}:{$c->alias}`");
       $this->columns->add($c);
     }
   }
