@@ -724,10 +724,11 @@ class RockFinder2 extends WireData implements Module {
     if($this->columns->has($colname)) {
       throw new WireException("Column $column already exists in this finder");
     }
-    $this->columns->add((object)[
-      'name' => $colname,
-      'alias' => $alias,
-    ]);
+
+    $col = $this->wire(new WireData);
+    $col->name = $colname;
+    $col->alias = $alias;
+    $this->columns->add($col);
 
     // get column type definition
     $col = $this->getCol($type);
@@ -748,17 +749,16 @@ class RockFinder2 extends WireData implements Module {
    * Add a RockFinder to join
    * @param string|RockFinder $finder
    * @param string $column column to join on
-   * @param array $columns columns to join
+   * @param array $aliases aliases for columns
    * @return void;
    */
-  public function addJoin($finder, $column, $columns = null, $aliases = []) {
+  public function addJoin($finder, $column, $aliases = []) {
     // check finder
     if(is_string($finder)) $finder = $this->getByName($finder);
     if(!$finder instanceof RockFinder2) throw new WireException("First parameter must be a RockFinder2");
 
     // setup columns
-    // if no columns are provided we add all columns from this finder
-    if(!$columns) $columns = $finder->columns;
+    $columns = $finder->columns;
 
     // get column from array
     $col = $this->columns->get($column);
