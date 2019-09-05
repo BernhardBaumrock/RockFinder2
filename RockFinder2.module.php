@@ -459,16 +459,22 @@ class RockFinder2 extends WireData implements Module {
       'nosort' => false,
     ];
     $options = array_merge($defaults, $options);
-    
-    // get ids of base selector
-    $selector = $this->wire(new Selectors($selector));
-    $pf = $this->wire(new PageFinder());
-    $query = $pf->find($selector, ['returnQuery' => true]);
 
-    // modify the base query to our needs
-    // we only need the page id
-    // setting the alias via AS is necessary for hideColumns() feature
-    $query->set('select', ['`pages`.`id` AS `id`']);
+    if($selector instanceof DatabaseQuerySelect) {
+      $query = $selector;
+    }
+    else {
+      // get ids of base selector
+      $selector = $this->wire(new Selectors($selector));
+      $pf = $this->wire(new PageFinder());
+      $query = $pf->find($selector, ['returnQuery' => true]);
+
+      // modify the base query to our needs
+      // we only need the page id
+      // setting the alias via AS is necessary for hideColumns() feature
+      $query->set('select', ['`pages`.`id` AS `id`']);
+    }
+
     // if possible ignore sort order for better performance
     if($options['nosort']) $query->set('orderby', []);
 
@@ -752,7 +758,7 @@ class RockFinder2 extends WireData implements Module {
    * @param array $aliases aliases for columns
    * @return void;
    */
-  public function addJoin($finder, $column, $aliases = []) {
+  public function join($finder, $column, $aliases = []) {
     // check finder
     if(is_string($finder)) $finder = $this->getByName($finder);
     if(!$finder instanceof RockFinder2) throw new WireException("First parameter must be a RockFinder2");
@@ -778,6 +784,11 @@ class RockFinder2 extends WireData implements Module {
       $this->columns->add($c);
     }
   }
+
+  /**
+   * For backwards compatibility
+   */
+  public function addJoin(...$args) { return $this->join(...$args); }
 
   /**
    * Get column type from column name
