@@ -1,5 +1,6 @@
 <?php namespace ProcessWire;
 $js = "<script>var finder = new _RockFinder2('$json');</script>";
+$root = $this->config->urls->root;
 
 if($input->requestMethod() == 'POST') {
   header('Content-Type: application/json');
@@ -16,8 +17,8 @@ if($input->requestMethod() == 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>RockFinder2 Debug Screen</title>
-  <script type='text/javascript' src='/wire/modules/Jquery/JqueryCore/JqueryCore.js'></script>
-  <script type='text/javascript' src='/site/modules/RockFinder2/RockFinder2.js'></script>
+  <script type='text/javascript' src='<?= $root ?>wire/modules/Jquery/JqueryCore/JqueryCore.js'></script>
+  <script type='text/javascript' src='<?= $root ?>site/modules/RockFinder2/RockFinder2.js'></script>
   <?= $tag ?>
   <style>
     .tracy-inner {display: none;}

@@ -112,7 +112,7 @@ class RockFinder2 extends WireData implements Module {
     if(!$this->wire->RockFinder2) {
       $this->name = 'rf2';
       $this->wire->set('RockFinder2', $this);
-      $this->url = "/".trim($this->url, "/")."/";
+      $this->url = $this->config->urls->root.trim($this->url, "/")."/";
       
       // get base table columns
       // this is only attached to the base instance for better performance
@@ -189,7 +189,7 @@ class RockFinder2 extends WireData implements Module {
    */
   public function apiEndpoint($event) {
     // is this the API Endpoint url?
-    $url = $event->arguments('url');
+    $url = $this->config->urls->root.ltrim($event->arguments('url'), '/');
 
     // if url does not match do a regular 404
     if($url != $this->url) return;

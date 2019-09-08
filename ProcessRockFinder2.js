@@ -54,21 +54,15 @@ $(document).ready(function() {
       // update div
       $debug.fadeOut(function() {
         $debug.html(data.html);
+        // unfold tracy dump object
         $debug.find('.tracy-dump-object').click();
       }).fadeIn();
 
       // update tabulator
       if(hasTabulator) {
-        grid = RockTabulator.getGrid('RockTabulator');
-        if(!grid) {
-          // init grid
-          grid = RockTabulator.init($tabulator, {data: data.finder.data});
-        }
-        else {
-          // update grid
-          grid.table.setData(data.finder.data);
-        }
-
+        grid = RockTabulator.getGrid("rockfinder2_sandbox");
+        if(!grid.table) grid.initTable({data:data.finder.data});
+        else grid.table.setData(data.finder.data);
         $tabulator.find('.loading').fadeOut();
       }
 
