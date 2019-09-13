@@ -597,6 +597,19 @@ class RockFinder2 extends WireData implements Module {
    * A relation is an array of objects that is stored with the finder. This
    * makes it possible to reference multiple related values from one row (1:n).
    * 
+   * Usage of $rows parameter:
+   * $main = new RockFinder2();
+   * $main->find(...);
+   * $main->addColumns(['title', 'foo']);
+   * 
+   * $rel = new RockFinder2();
+   * $rel->find('template=foo');
+   * $rel->addColumns(['title']);
+   * $main->addRelation('my-foo-data', $rel, 'foo');
+   * 
+   * This will add only pages to the relation "my-foo-data" that are listed
+   * in the "foo" column of the $main finder.
+   * 
    * @param string name
    * @param mixed $data
    * @param string $rows
