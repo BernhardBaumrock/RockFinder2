@@ -616,6 +616,10 @@ class RockFinder2 extends WireData implements Module {
    * @return RockFinder2
    */
   public function addRelation($name, $data, $rows = null) {
+    // by default we set the rows restriction to the column name
+    // if you don't want that set it to FALSE or to a custom name
+    if($rows === null) $rows = $name;
+
     // check if name already exists
     if(array_key_exists($name, $this->_relations)) {
       throw new WireException("A relation with name $name already exists");
