@@ -371,15 +371,16 @@ class RockFinder2 extends WireData implements Module {
   /**
    * Get finder by name
    * @param string $name
+   * @param array $vars
    * @return RockFinder2
    */
-  public function getByName($name) {
+  public function getByName($name, $vars = []) {
     if(!$name) throw new WireException("Please specify a name");
     $file = $this->getFiles($name);
     if(!$file) throw new WireException("File for $name not found");
 
     $path = $this->config->paths->assets.$this->className;
-    $rf = $this->files->render($file, [], ['allowedPaths' => [$path]]);
+    $rf = $this->files->render($file, $vars, ['allowedPaths' => [$path]]);
     if($rf instanceof RockFinder2) return $rf;
 
     return false;
