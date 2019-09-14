@@ -387,6 +387,24 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
+   * Add or-group to given selector
+   * @param array $selector
+   * @param array $items
+   * @return void
+   */
+  public function orGroup(&$selector, $items) {
+    $group = uniqid();
+    foreach($items as $item) {
+      $selector[] = [
+        'field' => $item[0],
+        'operator' => $item[1],
+        'value' => $item[2],
+        'group' => $group,
+      ];
+    }
+  }
+
+  /**
    * Same as getByName but does not throw exceptions if files do not exist
    * @return mixed
    */
