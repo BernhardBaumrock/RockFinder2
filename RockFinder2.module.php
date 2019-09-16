@@ -1047,7 +1047,7 @@ class RockFinder2 extends WireData implements Module {
    * Return current sql query string
    * @return string
    */
-  public function getSQL($pretty = false) {
+  public function getSQL($pretty = true) {
     if(!$this->query) return;
     $sql = $this->query->getQuery();
     return $pretty ? $this->prettify($sql) : $sql;
