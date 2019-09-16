@@ -694,7 +694,7 @@ class RockFinder2 extends WireData implements Module {
         $field = str_replace('self:', '', $rows);
 
         // get ids from main dataset
-        $ids = $this->getColData($maindata, 'id');
+        $ids = $this->getColData('id', $maindata);
         if(!count($ids)) {
           // if no matching ids where found we return an empty resultset
           // for this relation
@@ -708,7 +708,7 @@ class RockFinder2 extends WireData implements Module {
       elseif($rows) {
         // if ids restriction is a column of the main finder get ids from its data
         $colname = $rows;
-        $ids = $this->getColData($maindata, $colname);
+        $ids = $this->getColData($colname, $maindata);
         sort($ids); // performance pro or con?
 
         // add ids to query
@@ -730,13 +730,13 @@ class RockFinder2 extends WireData implements Module {
   }
 
   /**
-   * Get column data of array
+   * Get column data
+   * @param string $column
    * @param array $data
-   * @param array $column
    * @return array
    */
-  public function getColData($data, $column) {
-    if(!is_array($data)) throw new WireException("Data must be an array");
+  public function getColData($column, $data = null) {
+    if(!$data) $data = $this->getData()->data;
     
     $arr = [];
     foreach($data as $item) {
@@ -1002,7 +1002,7 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function setData($data) {
-    if(!is_array($data)) throw new WireException("Data must be an array");
+    if(!is_array($data)) throw new WireException("Data must be an array (".$this->name.")");
     $this->mainData = $data;
   }
 
