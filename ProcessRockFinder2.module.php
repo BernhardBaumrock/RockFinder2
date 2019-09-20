@@ -170,7 +170,7 @@ class ProcessRockFinder2 extends Process {
     $this->headline($headline);
     $this->wire('processBrowserTitle', $headline);
     
-    $form = modules('InputfieldForm');
+    $form = $this->modules->get('InputfieldForm');
     $form->action = './';
     $form->id = 'sandboxform';
     $out = '';
