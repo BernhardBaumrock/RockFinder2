@@ -789,9 +789,34 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Add a RockFinder to join
+   * 
+   * Basic usage:
+   * 
+   * $foo = new RockFinder2();
+   * $foo->find("template=foo");
+   * $foo->addColumns([..., bar]);
+   *
+   * $bar = new RockFinder2();
+   * $bar->find('template=bar');
+   * $bar->addColumns([...]);
+   * $foo->join($bar, 'bar');
+   * 
+   * Usage of custom joins:
+   * 
+   * $finder->join(
+   *   'project-client', // finder name to join
+   *   [
+   *    'clients', // joined data table alias
+   *    'id', // column to base join on
+   *    '`join_invoice`.`project`', // column to execute join on
+   *   ],
+   *   ['client', 'client:title'] // columns to add to SELECT
+   * );
+   * 
    * @param string|RockFinder $finder
-   * @param string $column column to join on
-   * @param array $aliases aliases for columns
+   * @param string $column column to join on or custom join command (AS foo ON foo.id = bar.id)
+   * @param array $aliases aliases for columns or columns to select on custom joins
+   * 
    * @return void;
    */
   public function join($finder, $column, $aliases = []) {
@@ -803,21 +828,36 @@ class RockFinder2 extends WireData implements Module {
     $columns = $finder->columns;
 
     // get column from array
-    $col = $this->columns->get($column);
-    if(!$col) throw new WireException("Column $column not found");
-
-    if(!$this->fields->get($col->name)) {
-      throw new WireException("Field \"{$col->name}\" does not exist so the join can not be performed");
-    }
-
-    // join data
     $sql = str_replace("\n", "\n  ", $finder->getSQL());
-    $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
-    foreach($columns as $c) {
-      $alias = "{$col->alias}:{$c->alias}";
-      if(array_key_exists($c->name, $aliases)) $alias = $aliases[$c->name];
-      $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) AS `$alias`");
-      $this->columns->add($c);
+    if(is_array($column)) {
+      // custom join
+      $table = $column[0]; // eg foo
+      $col = $column[1]; // eg id
+      $join = $column[2]; // eg bar.id
+      $this->query->leftjoin("($sql) AS `$table` ON `$table`.`$col` = $join");
+      foreach($aliases as $colname=>$alias) {
+        if(is_int($colname)) $colname = $alias;
+        $this->query->select("`$table`.`$colname` AS `$alias`");
+      }
+    }
+    else {
+      $col = $this->columns->get($column);
+      if(!$col) {
+        // if the column is an array it is a custom join
+        // otherwise we throw an error that the column does not exist
+        throw new WireException("Column $column not found");
+      }
+      if(!$this->fields->get($col->name)) {
+        throw new WireException("Field \"{$col->name}\" does not exist so the join can not be performed");
+      }
+
+      $this->query->leftjoin("($sql) AS `join_{$col->name}` ON `join_{$col->name}`.id = _field_{$col->name}.data");
+      foreach($columns as $c) {
+        $alias = "{$col->alias}:{$c->alias}";
+        if(array_key_exists($c->name, $aliases)) $alias = $aliases[$c->name];
+        $this->query->select("GROUP_CONCAT(DISTINCT `join_$column`.`{$c->alias}`) AS `$alias`");
+        $this->columns->add($c);
+      }
     }
   }
 
@@ -979,7 +1019,7 @@ class RockFinder2 extends WireData implements Module {
     $data->context = $this->getContext();
     $data->relations = $this->relations;
     if($debug) $data->_relations = $this->_relations;
-    if($debug) $data->sql = $this->prettify($this->getSQL());
+    if($debug) $data->sql = $this->getSQL();
     if($debug) $data->timings = 'todo'; //$timings;
 
     $this->dataObject = $data;
@@ -993,6 +1033,10 @@ class RockFinder2 extends WireData implements Module {
   private function prettify($sql) {
     $str = str_replace("SELECT ", "SELECT\n  ", $sql);
     $str = str_replace("`,", "`,\n  ", $str);
+
+    // undo double breaks on joined sql
+    $str = str_replace("`,\n  \n", "`,\n", $str);
+
     return $str;
   }
 
