@@ -709,6 +709,14 @@ class RockFinder2 extends WireData implements Module {
         // if ids restriction is a column of the main finder get ids from its data
         $colname = $rows;
         $ids = $this->getColData($colname, $maindata);
+
+        // if no ids where found we return an empty 
+        if(!count($ids)) {
+          $relation->loaded = true;
+          $this->relations[$name] = [];
+          return;
+        }
+
         sort($ids); // performance pro or con?
 
         // add ids to query
@@ -736,7 +744,7 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function getColData($column, $data = null) {
-    if(!$data) $data = $this->getData()->data;
+    if($data === null) $data = $this->getData()->data;
     
     $arr = [];
     foreach($data as $item) {
