@@ -466,7 +466,7 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Set selector of this finder
-   * @param string|array $selector
+   * @param string|array|DatabaseQuerySelect $selector
    * @param array $options
    * @return void
    */
