@@ -14,7 +14,7 @@ class RockFinder2 extends WireData implements Module {
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
       'installs' => ['ProcessRockFinder2'],
-      'autoload' => true,
+      'autoload' => 'template=admin',
       'singular' => true,
     ];
   }
