@@ -11,7 +11,17 @@ Sorry for this readme! It is really not more then notes to myself. I hope I can 
 ---
 
 
+```php
+$f = new RockFinder2();
+$f->find('template=admin');
+$f->addColumns(['title']);
+db($f);
+```
+![img](https://i.imgur.com/0LaTBxO.png)
 
+
+
+---
 
 
 
