@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.2',
+      'version' => '0.0.3',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
@@ -881,6 +881,10 @@ class RockFinder2 extends WireData implements Module {
    * @return string
    */
   public function ___getType($column) {
+    if(!$this->wire->RockFinder2) {
+      throw new WireException("You need to call \$modules->get('RockFinder2') for frontend usage!");
+    }
+
     // is this column part of the pages table?
     $columns = $this->wire->RockFinder2->baseColumns;
     if(in_array($column, $columns)) return 'BaseColumn';
