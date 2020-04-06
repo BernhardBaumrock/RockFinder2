@@ -2,6 +2,24 @@
 
 ProcessWire module, successor of RockFinder
 
+
+
+---
+
+Sorry for this readme! It is really not more then notes to myself. I hope I can provide a proper readme one day :)
+
+---
+
+
+
+
+
+
+
+
+
+
+
 * better error reporting
 * new concept of joins
 * using built in query abstraction
