@@ -19,11 +19,17 @@ db($f);
 ```
 ![img](https://i.imgur.com/0LaTBxO.png)
 
+---
 
+## How to create custom column types
+
+It is really easy to create custom column types that can retrieve any data from the PW database. See this commit for two simple examples: https://github.com/BernhardBaumrock/RockFinder2/commit/54476a24c78ae4d3b6d00f8adfb2c8cd9d764b9d
+
+If the fieldtype is of broader interest please consider making a PR. If you are the only one needing it add the type via hook.
 
 ---
 
-Example of how to get values of an options field instead of their IDs:
+## Manually joining any kind of data
 
 ```php
 $f = new RockFinder2();
