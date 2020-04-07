@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.3',
+      'version' => '0.0.4',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
@@ -927,7 +927,7 @@ class RockFinder2 extends WireData implements Module {
         $event->return = function($data) {
           $data->query->select("`{$data->column}` AS `{$data->alias}`");
         };
-        return;
+      return;
 
       // default pw field
       case 'FieldText':
@@ -937,7 +937,7 @@ class RockFinder2 extends WireData implements Module {
           $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
           $data->query->select("`$tablealias`.data AS `$data->alias`");
         };
-        return;
+      return;
 
       // pw file/image field
       case 'FieldMulti':
@@ -947,21 +947,43 @@ class RockFinder2 extends WireData implements Module {
           $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
           $data->query->select("GROUP_CONCAT(DISTINCT `$tablealias`.data ORDER BY `$tablealias`.sort SEPARATOR ',') AS `$data->alias`");
         };
-        return;
+      return;
+
+      // pw options field, get direct selected value (by DavidKarich)
+      case 'FieldOptionsValue': 
+        $event->return = function($data) {
+          $table = $this->getTable($data->column);
+          $tablealias = $this->getTableAlias($data->column);
+          $data->query->leftjoin("`{$table}` AS `{$tablealias}` ON `{$tablealias}`.`pages_id` = `pages`.`id`");
+          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->alias}'");
+          $data->query->leftjoin("`fieldtype_options` AS `_options_{$data->alias}` ON `_options_{$data->alias}`.`option_id` = `{$tablealias}`.`data` AND `_options_{$data->alias}`.`fields_id` = `_fields_{$data->alias}`.`id`");
+          $data->query->select("`_options_{$data->alias}`.`value` AS `{$data->alias}`");
+        };
+      return;
+
+      // pw field range slider (by DavidKarich)
+      case 'FieldRange':
+        $event->return = function($data) {
+          $table = $this->getTable($data->column);
+          $tablealias = $this->getTableAlias($data->column);
+          $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.`pages_id` = `pages`.`id`");
+          $data->query->select("CONCAT(`$tablealias`.`data`, ',', `$tablealias`.`data_max`) AS `$data->alias`");
+        };
+      return;
         
       // default pw field
       case 'FieldNotFound':
         $event->return = function($data) {
           $data->query->select("'Field not found' AS `$data->alias`");
         };
-        return;
+      return;
 
       // default fallback
       default:
         $event->return = function($data) {
           $data->query->select("'No column type found for type {$data->type}' AS `{$data->alias}`");
         };
-        return;
+      return;
     }
   }
 
