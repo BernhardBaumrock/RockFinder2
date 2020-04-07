@@ -23,11 +23,43 @@ db($f);
 
 ---
 
+Example of how to get values of an options field instead of their IDs:
+
+```php
+$f = new RockFinder2();
+$f->find('template=basic-page, include=all');
+$f->addColumns(['title', 'options']);
+$f->query->select("opt.value AS `options.value`");
+$f->query->leftjoin("fieldtype_options AS opt ON opt.option_id = _field_options.data");
+db($f->getData()->data);
+```
+![img](https://i.imgur.com/Q3vmS2v.png)
+
+Dumping the query object will be really helpful on such tasks!
+
+![img](https://i.imgur.com/oF0mGyf.png)
+
+You can also replace the field's value instead of adding it to the result:
+
+```php
+$f = new RockFinder2();
+$f->find('template=basic-page, include=all');
+$f->addColumns(['title', 'options']);
+
+$select = $f->query->select;
+unset($select[2]);
+$f->query->set('select', $select);
 
 
+$f->query->select("opt.value AS `options`");
+$f->query->leftjoin("fieldtype_options AS opt ON opt.option_id = _field_options.data");
+db($f->query);
+db($f->getData()->data);
+```
 
+![img](https://i.imgur.com/5OxQkbm.png)
 
-
+---
 
 
 * better error reporting
