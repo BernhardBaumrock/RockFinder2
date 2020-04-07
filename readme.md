@@ -27,6 +27,10 @@ It is really easy to create custom column types that can retrieve any data from 
 
 If the fieldtype is of broader interest please consider making a PR. If you are the only one needing it add the type via hook.
 
+```php
+$f->addColumns(['FieldOptionsValue:your_options_fieldname']);
+```
+
 ---
 
 ## Manually joining any kind of data
