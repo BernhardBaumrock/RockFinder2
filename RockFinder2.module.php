@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.4',
+      'version' => '0.0.5',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
@@ -772,7 +772,10 @@ class RockFinder2 extends WireData implements Module {
     // add this column to columns array
     $colname = (string)$column;
     if($this->columns->has($colname)) {
-      throw new WireException("Column $column already exists in this finder");
+      // if the column does already exist we append a unique id
+      // this can happen when requesting title and value of an options field
+      // https://i.imgur.com/woxCx78.png
+      $colname .= "_".uniqid();
     }
 
     $col = $this->wire(new WireData);
@@ -949,15 +952,28 @@ class RockFinder2 extends WireData implements Module {
         };
       return;
 
+      // pw options field, get direct selected title of option
+      // multilang not supported!
+      case 'FieldOptionsTitle': 
+        $event->return = function($data) {
+          $table = $this->getTable($data->column);
+          $tablealias = $this->getTableAlias($data->column);
+          $data->query->leftjoin("`{$table}` AS `{$tablealias}` ON `{$tablealias}`.`pages_id` = `pages`.`id`");
+          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->column}'");
+          $data->query->leftjoin("`fieldtype_options` AS `_options_{$data->alias}` ON `_options_{$data->alias}`.`option_id` = `{$tablealias}`.`data` AND `_options_{$data->alias}`.`fields_id` = `_fields_{$data->column}`.`id`");
+          $data->query->select("GROUP_CONCAT(`_options_{$data->alias}`.`title`) AS `{$data->alias}`");
+        };
+      return;
+
       // pw options field, get direct selected value (by DavidKarich)
       case 'FieldOptionsValue': 
         $event->return = function($data) {
           $table = $this->getTable($data->column);
           $tablealias = $this->getTableAlias($data->column);
           $data->query->leftjoin("`{$table}` AS `{$tablealias}` ON `{$tablealias}`.`pages_id` = `pages`.`id`");
-          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->alias}'");
+          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->column}'");
           $data->query->leftjoin("`fieldtype_options` AS `_options_{$data->alias}` ON `_options_{$data->alias}`.`option_id` = `{$tablealias}`.`data` AND `_options_{$data->alias}`.`fields_id` = `_fields_{$data->alias}`.`id`");
-          $data->query->select("`_options_{$data->alias}`.`value` AS `{$data->alias}`");
+          $data->query->select("GROUP_CONCAT(`_options_{$data->alias}`.`value`) AS `{$data->alias}`");
         };
       return;
 
@@ -1011,7 +1027,7 @@ class RockFinder2 extends WireData implements Module {
    * @return string
    */
   public function getTableAlias($column) {
-    return "_".$this->getTable($column);
+    return "_".$this->getTable($column)."_".uniqid();
   }
 
   /* ########## get data ########## */

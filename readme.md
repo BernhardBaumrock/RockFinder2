@@ -21,6 +21,19 @@ db($f);
 
 ---
 
+## Showing the title/value of selected options instead of ID values
+
+Options fields store 3 things in the database: The ID of the option, the value of the option and the title (for each language) of the option:
+
+![img](https://i.imgur.com/MFZAdtX.png)
+
+There are two custom column types to get the value or the title of a selected options field:
+
+![img](https://i.imgur.com/woxCx78.png)
+![img](https://i.imgur.com/IYPFytq.png)
+
+Note that this does not work for multilang and multi-select yet! You can create a custom column type in that cases:
+
 ## How to create custom column types
 
 It is really easy to create custom column types that can retrieve any data from the PW database. See this commit for two simple examples: https://github.com/BernhardBaumrock/RockFinder2/commit/54476a24c78ae4d3b6d00f8adfb2c8cd9d764b9d
