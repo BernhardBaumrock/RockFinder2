@@ -30,6 +30,7 @@ Options fields store 3 things in the database: The ID of the option, the value o
 There are two custom column types to get the value or the title of a selected options field:
 
 ![img](https://i.imgur.com/woxCx78.png)
+
 ![img](https://i.imgur.com/IYPFytq.png)
 
 Note that this does not work for multilang and multi-select yet! You can create a custom column type in that cases:
