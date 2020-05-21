@@ -1201,10 +1201,10 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function __debugInfo() {
-    $info = $this->settings ?: [];
-    $info['name'] = $this->name;
-    $info['find'] = $this->selector;
-    $info['getData()'] = $this->getData();
-    return $info; 
+    return [
+      'name' => $this->name,
+      'find' => $this->selector,
+      'getData()' => $this->getData(),
+    ];
   }
 }
