@@ -161,13 +161,6 @@ class RockFinder2 extends WireData implements Module {
     });
   }
 
-  /**
-   * API ready
-   */
-  public function ready() {
-    $this->checkUrl();
-  }
-
   /* ########## general ########## */
 
   /**
@@ -188,6 +181,8 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function apiEndpoint($event) {
+    if(!$this->url) throw new WireException("You need to set an API Endpoint URL");
+
     // is this the API Endpoint url?
     $url = $this->config->urls->root.ltrim($event->arguments('url'), '/');
 
@@ -449,17 +444,6 @@ class RockFinder2 extends WireData implements Module {
       // don't throw errors
     }
     return $file;
-  }
-
-  /**
-   * Check API Endpoint Url
-   */
-  public function checkUrl() {
-    // don't check on modules page
-    if($this->page->id == 21) return;
-
-    if(!$this->url) throw new WireException("Url of RockFinder2 must not be empty");
-    if($this->url == '//') throw new WireException("Url of RockFinder2 must not be empty");
   }
 
   /* ########## sql query constructor ########## */
