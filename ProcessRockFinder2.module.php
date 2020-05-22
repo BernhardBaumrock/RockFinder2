@@ -137,7 +137,11 @@ class ProcessRockFinder2 extends Process {
         top: 0 !important;
         width: 100vw !important;
         height: 100vh !important;
-      }</style>';
+      }</style>
+      <script>
+      // open the console automatically
+      localStorage.setItem("tracy-debug-panel-ConsolePanel", "{}");
+      </script>';
   }
 
   /**
