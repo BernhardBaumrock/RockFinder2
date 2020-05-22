@@ -1196,10 +1196,11 @@ class RockFinder2 extends WireData implements Module {
     $json = json_encode($settings);
 
     $id = uniqid();
-    \TD::echo("<div id='tab_$id'></div>
+    if($title) echo "<h2>$title</h2>";
+    echo "<div id='tab_$id'></div>
     <script>
     var table = new Tabulator('#tab_$id', $json);
-    </script>", $title);
+    </script>";
   }
 
   /* ########## debug info ########## */
