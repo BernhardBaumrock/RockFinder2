@@ -19,6 +19,13 @@ class ProcessRockFinder2 extends Process {
         'title' => 'RockFinder2',
         'parent' => 'setup',
       ],
+      'nav' => [
+        [
+          'url' => 'console/', 
+          'label' => 'Tracy Console', 
+          'icon' => 'bug', 
+        ],
+      ]
     ];
   }
 
@@ -111,6 +118,26 @@ class ProcessRockFinder2 extends Process {
       ]);
     
     return $form->render();
+  }
+
+  /**
+   * Process Module to use tracy console for debugging
+   */
+  public function executeConsole() {
+    $nl = "\n";
+    $this->config->scripts->add("https://unpkg.com/tabulator-tables@4.6.3/dist/js/tabulator.min.js");
+    $this->config->styles->add("https://unpkg.com/tabulator-tables@4.6.3/dist/css/tabulator.min.css");
+    return '<strong>Open the tracy console and try this dump:</strong>
+      <pre><code>$f = new RockFinder2();'.$nl
+      .'$f->find("template=admin");'.$nl
+      .'$f->addColumns(["title", "created", "status"]);'.$nl
+      .'$f->dump();</code></pre>
+      <style>#tracy-debug-panel-ConsolePanel {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+      }</style>';
   }
 
   /**

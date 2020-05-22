@@ -1193,6 +1193,30 @@ class RockFinder2 extends WireData implements Module {
     echo $finder->getJSON();
     $event->return = ob_end_flush();
   }
+  
+  /**
+   * Dump this finder to the tracy console
+   */
+  public function dump($title = null, $options = null) {
+    $settings = $this->wire(new WireData()); /** @var WireData $settings */
+    $settings->setArray([
+      'layout' => 'fitColumns',
+      'autoColumns' => true,
+      'pagination' => "local",
+      'paginationSize' => 10,
+      'paginationSizeSelector' => true,
+    ]);
+    $settings->setArray($options ?: []);
+    $settings = $settings->getArray();
+    $settings['data'] = $this->getData()->data;
+    $json = json_encode($settings);
+
+    $id = uniqid();
+    \TD::echo("<div id='tab_$id'></div>
+    <script>
+    var table = new Tabulator('#tab_$id', $json);
+    </script>", $title);
+  }
 
   /* ########## debug info ########## */
 
