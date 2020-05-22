@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.5',
+      'version' => '0.0.6',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
