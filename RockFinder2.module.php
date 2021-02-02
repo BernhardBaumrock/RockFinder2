@@ -9,7 +9,7 @@ class RockFinder2 extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockFinder2',
-      'version' => '0.0.6',
+      'version' => '0.0.2',
       'summary' => 'RockFinder2',
       'icon' => 'search',
       'requires' => ['TracyDebugger'],
@@ -18,7 +18,7 @@ class RockFinder2 extends WireData implements Module {
       'singular' => true,
     ];
   }
-  
+
   /**
    * RockFinder data object
    */
@@ -26,7 +26,7 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Callable to check for access
-   * 
+   *
    * By default this will only return true for superusers.
    * @var callback
    */
@@ -81,7 +81,7 @@ class RockFinder2 extends WireData implements Module {
    * @var array
    */
   public $options = [];
-  
+
   /**
    * Array of relations
    * @var array
@@ -94,7 +94,7 @@ class RockFinder2 extends WireData implements Module {
    */
   public function __construct() {
     $this->name = uniqid();
-    
+
     // init columns array
     $this->columns = $this->wire(new WireArray);
 
@@ -113,7 +113,7 @@ class RockFinder2 extends WireData implements Module {
       $this->name = 'rf2';
       $this->wire->set('RockFinder2', $this);
       $this->url = $this->config->urls->root.trim($this->url, "/")."/";
-      
+
       // get base table columns
       // this is only attached to the base instance for better performance
       $db = $this->config->dbName;
@@ -161,6 +161,13 @@ class RockFinder2 extends WireData implements Module {
     });
   }
 
+  /**
+   * API ready
+   */
+  public function ready() {
+    $this->checkUrl();
+  }
+
   /* ########## general ########## */
 
   /**
@@ -181,8 +188,6 @@ class RockFinder2 extends WireData implements Module {
    * @return void
    */
   public function apiEndpoint($event) {
-    if(!$this->url) throw new WireException("You need to set an API Endpoint URL");
-
     // is this the API Endpoint url?
     $url = $this->config->urls->root.ltrim($event->arguments('url'), '/');
 
@@ -225,9 +230,9 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Send output to browser
-   * 
+   *
    * This method can be hooked so you can attach custom renderers.
-   * 
+   *
    * @return void
    */
   public function output() {
@@ -251,8 +256,8 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Render content of this finder
-   * 
-   * By default this returns gzip data as application/json. This can be 
+   *
+   * By default this returns gzip data as application/json. This can be
    * modified via hooks, so you can attach all kinds of custom renderers.
    */
   public function ___render($type) {}
@@ -267,7 +272,7 @@ class RockFinder2 extends WireData implements Module {
     if($this->input->requestMethod() != 'POST') {
       throw new WireException("The sandbox is only available via POST");
     }
-    
+
     // get code from input and write it to a temp file
     $tmp = $this->files->tempDir($this->className);
     $file = $tmp.uniqid().".php";
@@ -414,9 +419,9 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get all finder files
-   * 
+   *
    * If name is specified return only this single file (case sensitive).
-   * 
+   *
    * @param string $name
    * @return string|array
    */
@@ -446,6 +451,17 @@ class RockFinder2 extends WireData implements Module {
     return $file;
   }
 
+  /**
+   * Check API Endpoint Url
+   */
+  public function checkUrl() {
+    // don't check on modules page
+    if($this->page->id == 21) return;
+
+    if(!$this->url) throw new WireException("Url of RockFinder2 must not be empty");
+    if($this->url == '//') throw new WireException("Url of RockFinder2 must not be empty");
+  }
+
   /* ########## sql query constructor ########## */
 
   /**
@@ -458,7 +474,7 @@ class RockFinder2 extends WireData implements Module {
     $this->selector = $selector;
     $defaults = [
       // ignore sort order of initial page find operation
-      // this can significantly increase performance 
+      // this can significantly increase performance
       'nosort' => false,
     ];
     $options = array_merge($defaults, $options);
@@ -526,10 +542,10 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Hide columns from final output
-   * 
+   *
    * This does NOT remove the columns from the columns array of the finder.
    * The columns must exist there so that joins can be performed.
-   * 
+   *
    * @param array $columns
    * @return void
    */
@@ -582,11 +598,11 @@ class RockFinder2 extends WireData implements Module {
       foreach($fields as $field) $this->addOptions($field);
       return;
     }
-    
+
     $fieldname = (string)$fields;
     $field = $this->fields->get($fieldname);
     if(!$field) throw new WireException("Field $fieldname not found");
-    
+
     $data = [];
     foreach($field->type->getOptions($field) as $opt) {
       $data[$opt->id] = $opt->title;
@@ -596,23 +612,23 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Add relation to this finder
-   * 
+   *
    * A relation is an array of objects that is stored with the finder. This
    * makes it possible to reference multiple related values from one row (1:n).
-   * 
+   *
    * Usage of $rows parameter:
    * $main = new RockFinder2();
    * $main->find(...);
    * $main->addColumns(['title', 'foo']);
-   * 
+   *
    * $rel = new RockFinder2();
    * $rel->find('template=foo');
    * $rel->addColumns(['title']);
    * $main->addRelation('my-foo-data', $rel, 'foo');
-   * 
+   *
    * This will add only pages to the relation "my-foo-data" that are listed
    * in the "foo" column of the $main finder.
-   * 
+   *
    * @param string name
    * @param mixed $data
    * @param string $rows
@@ -694,7 +710,7 @@ class RockFinder2 extends WireData implements Module {
         $colname = $rows;
         $ids = $this->getColData($colname, $maindata);
 
-        // if no ids where found we return an empty 
+        // if no ids where found we return an empty
         if(!count($ids)) {
           $relation->loaded = true;
           $this->relations[$name] = [];
@@ -729,7 +745,7 @@ class RockFinder2 extends WireData implements Module {
    */
   public function getColData($column, $data = null) {
     if($data === null) $data = $this->getData()->data;
-    
+
     $arr = [];
     foreach($data as $item) {
       $item = (array)$item;
@@ -756,10 +772,7 @@ class RockFinder2 extends WireData implements Module {
     // add this column to columns array
     $colname = (string)$column;
     if($this->columns->has($colname)) {
-      // if the column does already exist we append a unique id
-      // this can happen when requesting title and value of an options field
-      // https://i.imgur.com/woxCx78.png
-      $colname .= "_".uniqid();
+      throw new WireException("Column $column already exists in this finder");
     }
 
     $col = $this->wire(new WireData);
@@ -784,9 +797,9 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Add a RockFinder to join
-   * 
+   *
    * Basic usage:
-   * 
+   *
    * $foo = new RockFinder2();
    * $foo->find("template=foo");
    * $foo->addColumns([..., bar]);
@@ -795,9 +808,9 @@ class RockFinder2 extends WireData implements Module {
    * $bar->find('template=bar');
    * $bar->addColumns([...]);
    * $foo->join($bar, 'bar');
-   * 
+   *
    * Usage of custom joins:
-   * 
+   *
    * $finder->join(
    *   'project-client', // finder name to join
    *   [
@@ -807,11 +820,11 @@ class RockFinder2 extends WireData implements Module {
    *   ],
    *   ['client', 'client:title'] // columns to add to SELECT
    * );
-   * 
+   *
    * @param string|RockFinder $finder
    * @param string $column column to join on or custom join command (AS foo ON foo.id = bar.id)
    * @param array $aliases aliases for columns or columns to select on custom joins
-   * 
+   *
    * @return void;
    */
   public function join($finder, $column, $aliases = []) {
@@ -863,15 +876,11 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get column type from column name
-   * 
+   *
    * @param string $column
    * @return string
    */
   public function ___getType($column) {
-    if(!$this->wire->RockFinder2) {
-      throw new WireException("You need to call \$modules->get('RockFinder2') for frontend usage!");
-    }
-
     // is this column part of the pages table?
     $columns = $this->wire->RockFinder2->baseColumns;
     if(in_array($column, $columns)) return 'BaseColumn';
@@ -898,10 +907,10 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get column types via hook
-   * 
+   *
    * Caution: Make sure tu use getTableAlias() on all your queries! See notes
    * of the method for explanation.
-   * 
+   *
    * @param HookEvent $event;
    * @return void;
    */
@@ -914,7 +923,7 @@ class RockFinder2 extends WireData implements Module {
         $event->return = function($data) {
           $data->query->select("`{$data->column}` AS `{$data->alias}`");
         };
-      return;
+        return;
 
       // default pw field
       case 'FieldText':
@@ -924,7 +933,7 @@ class RockFinder2 extends WireData implements Module {
           $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
           $data->query->select("`$tablealias`.data AS `$data->alias`");
         };
-      return;
+        return;
 
       // pw file/image field
       case 'FieldMulti':
@@ -934,56 +943,21 @@ class RockFinder2 extends WireData implements Module {
           $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.pages_id=pages.id");
           $data->query->select("GROUP_CONCAT(DISTINCT `$tablealias`.data ORDER BY `$tablealias`.sort SEPARATOR ',') AS `$data->alias`");
         };
-      return;
+        return;
 
-      // pw options field, get direct selected title of option
-      // multilang not supported!
-      case 'FieldOptionsTitle': 
-        $event->return = function($data) {
-          $table = $this->getTable($data->column);
-          $tablealias = $this->getTableAlias($data->column);
-          $data->query->leftjoin("`{$table}` AS `{$tablealias}` ON `{$tablealias}`.`pages_id` = `pages`.`id`");
-          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->column}'");
-          $data->query->leftjoin("`fieldtype_options` AS `_options_{$data->alias}` ON `_options_{$data->alias}`.`option_id` = `{$tablealias}`.`data` AND `_options_{$data->alias}`.`fields_id` = `_fields_{$data->column}`.`id`");
-          $data->query->select("GROUP_CONCAT(`_options_{$data->alias}`.`title`) AS `{$data->alias}`");
-        };
-      return;
-
-      // pw options field, get direct selected value (by DavidKarich)
-      case 'FieldOptionsValue': 
-        $event->return = function($data) {
-          $table = $this->getTable($data->column);
-          $tablealias = $this->getTableAlias($data->column);
-          $data->query->leftjoin("`{$table}` AS `{$tablealias}` ON `{$tablealias}`.`pages_id` = `pages`.`id`");
-          $data->query->leftjoin("`fields` AS `_fields_{$data->alias}` ON `_fields_{$data->alias}`.`name` = '{$data->column}'");
-          $data->query->leftjoin("`fieldtype_options` AS `_options_{$data->alias}` ON `_options_{$data->alias}`.`option_id` = `{$tablealias}`.`data` AND `_options_{$data->alias}`.`fields_id` = `_fields_{$data->alias}`.`id`");
-          $data->query->select("GROUP_CONCAT(`_options_{$data->alias}`.`value`) AS `{$data->alias}`");
-        };
-      return;
-
-      // pw field range slider (by DavidKarich)
-      case 'FieldRange':
-        $event->return = function($data) {
-          $table = $this->getTable($data->column);
-          $tablealias = $this->getTableAlias($data->column);
-          $data->query->leftjoin("`$table` AS `$tablealias` ON $tablealias.`pages_id` = `pages`.`id`");
-          $data->query->select("CONCAT(`$tablealias`.`data`, ',', `$tablealias`.`data_max`) AS `$data->alias`");
-        };
-      return;
-        
       // default pw field
       case 'FieldNotFound':
         $event->return = function($data) {
           $data->query->select("'Field not found' AS `$data->alias`");
         };
-      return;
+        return;
 
       // default fallback
       default:
         $event->return = function($data) {
           $data->query->select("'No column type found for type {$data->type}' AS `{$data->alias}`");
         };
-      return;
+        return;
     }
   }
 
@@ -995,10 +969,10 @@ class RockFinder2 extends WireData implements Module {
   public function getTable($column) {
     return "field_$column";
   }
-  
+
   /**
    * Get table alias name for this column
-   * 
+   *
    * We prepend the original table name with an underscore so that we do not end
    * up with a "non unique table alias" error. This can happen when the selector
    * contains a field that is also listed in the RockFinder columns, eg:
@@ -1006,12 +980,12 @@ class RockFinder2 extends WireData implements Module {
    * $rf->addColumns(['title', 'bar']);
    * Field "bar" is joined (JOIN) by the initial PW query and also joined later
    * via RockFinder2 (LEFT JOIN).
-   * 
+   *
    * @param string $column
    * @return string
    */
   public function getTableAlias($column) {
-    return "_".$this->getTable($column)."_".uniqid();
+    return "_".$this->getTable($column);
   }
 
   /* ########## get data ########## */
@@ -1022,7 +996,7 @@ class RockFinder2 extends WireData implements Module {
    */
   public function getData($debug = null) {
     if($debug === null) $debug = $this->debug;
-    
+
     // timings
       // $timings = [];
       // $start = $previous = microtime(true);
@@ -1044,7 +1018,7 @@ class RockFinder2 extends WireData implements Module {
 
     // return data
     if($this->dataObject) return $this->dataObject;
-    
+
     $data = (object)[];
     $data->name = $this->name;
     if($debug) $data->columns = $this->columns;
@@ -1086,10 +1060,10 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Get main data from PW selector
-   * 
+   *
    * If a column index is provided it will return a plain array of values stored
    * in that column.
-   * 
+   *
    * @param int $columnindex
    * @return array
    */
@@ -1127,17 +1101,20 @@ class RockFinder2 extends WireData implements Module {
    */
   public function getSQL($pretty = true) {
     if(!$this->query) return;
-    $sql = $this->query->getQuery();
+    $query = $this->query;
+
+    if (method_exists($query, 'getDebugQuery')) $sql = $query->getDebugQuery();
+    else $sql = $query->getQuery();
     return $pretty ? $this->prettify($sql) : $sql;
   }
 
   /* ########## renderers ########## */
-  
+
   /**
    * Debug renderer
-   * 
+   *
    * This renderer is used for debugging.
-   * 
+   *
    * @param HookEvent $event
    * @return void
    */
@@ -1145,7 +1122,7 @@ class RockFinder2 extends WireData implements Module {
     if(!$this->user->isSuperuser()) {
       throw new WireException("Debug feature may only be used by Superusers!");
     }
-    
+
     $finder = $event->object;
     $finder->debug = true;
     $data = $finder->getData();
@@ -1164,9 +1141,9 @@ class RockFinder2 extends WireData implements Module {
 
   /**
    * Gzip renderer
-   * 
+   *
    * This is the default renderer for returning gzipped json data.
-   * 
+   *
    * @param HookEvent $event
    * @return void
    */
@@ -1177,31 +1154,6 @@ class RockFinder2 extends WireData implements Module {
     echo $finder->getJSON();
     $event->return = ob_end_flush();
   }
-  
-  /**
-   * Dump this finder to the tracy console
-   */
-  public function dump($title = null, $options = null) {
-    $settings = $this->wire(new WireData()); /** @var WireData $settings */
-    $settings->setArray([
-      'layout' => 'fitColumns',
-      'autoColumns' => true,
-      'pagination' => "local",
-      'paginationSize' => 10,
-      'paginationSizeSelector' => true,
-    ]);
-    $settings->setArray($options ?: []);
-    $settings = $settings->getArray();
-    $settings['data'] = $this->getData()->data;
-    $json = json_encode($settings);
-
-    $id = uniqid();
-    if($title) echo "<h2>$title</h2>";
-    echo "<div id='tab_$id'></div>
-    <script>
-    var table = new Tabulator('#tab_$id', $json);
-    </script>";
-  }
 
   /* ########## debug info ########## */
 
@@ -1210,10 +1162,10 @@ class RockFinder2 extends WireData implements Module {
    * @return array
    */
   public function __debugInfo() {
-    return [
-      'name' => $this->name,
-      'find' => $this->selector,
-      'getData()' => $this->getData(),
-    ];
+    $info = $this->settings ?: [];
+    $info['name'] = $this->name;
+    $info['find'] = $this->selector;
+    $info['getData()'] = $this->getData();
+    return $info;
   }
 }
